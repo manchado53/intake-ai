@@ -3,17 +3,15 @@
 Guide for coding agents working in this repo. Read this first.
 
 ## What this is
-**Intake.ai**: camera-based meal intake tracking for **nursing homes**, built as a Roboflow
+**Intake.ai**: camera-based meal intake tracking (currently aimed at nursing homes), built as a Roboflow
 Field Engineering tech challenge (proof-of-concept). Live demo **Wed 2026-10-28, 6 pm CDT,
 Zoom, 30 min hard stop, must be live**.
 
-A color + depth camera looks straight down at a plate before and after a meal. A trained
-Roboflow instance-segmentation model outlines each food and the plate. A custom Workflow block
-uses depth inside each outline to get volume, then % eaten = 1 − after / before, then
-protein/kcal from the menu portion. Alerts fire when a resident eats under 50% three meals in a
-row. Runs offline on a Jetson Orin Nano with Roboflow Inference.
+**Fixed (from the brief):** own data, a trained Roboflow model, a Workflow with a custom block,
+deployment on Roboflow Inference, actionable insights. See `context/brief-summary.md`.
 
-Source of truth for requirements: `context/brief-summary.md` (and the brief PDF next to it).
+**Everything else is still open.** The current direction lives in `plans/` and changes as we
+learn. Read the latest plan before building, and don't treat design choices below as settled.
 
 ## Repo map
 | Path | What |
@@ -35,16 +33,17 @@ Source of truth for requirements: `context/brief-summary.md` (and the brief PDF 
 - Only one program can hold the camera at a time; close the preview before running another.
   Unplugging the camera ends the program.
 
-## Domain facts to keep straight
-- Target: nursing homes (skilled nursing). Intake is charted by eye as 0/25/50/75/100%.
-  Regular-texture diet only in v1.
-- Model classes: `chicken`, `rice`, `pasta`, `green-beans`, `fruit`, `plate`.
-- The model only finds **where** each food is. Before/after comparison is math, not training.
-- The **before** scan is the reference (portions vary: large/small orders, scoop drift).
-- Camera ~37–45 cm (15–18") above the plate, pointing straight down. Depth minimum ~30 cm.
-- Dark, shiny, or steep surfaces read as holes (0 mm). Fill holes from nearby valid depth.
-- Ground truth: whole-plate weight on a 1 g kitchen scale, typed in by hand.
-- Roboflow project: `manchado53/intake-ai-food-seg` (instance segmentation, public, CC BY 4.0).
+## Current direction (open to change)
+These are working choices, not rules. If one changes, update the plan and this list.
+- Target customer: nursing homes (they already chart intake by eye, 0/25/50/75/100%).
+- Approach: segmentation model finds foods + plate; before vs after compared with depth math.
+- Classes so far: `chicken`, `rice`, `pasta`, `green-beans`, `fruit`, `plate`.
+- Ground truth: whole-plate weight on a 1 g kitchen scale.
+- Roboflow project: `manchado53/intake-ai-food-seg`.
+
+## Hardware facts (measured, stable)
+- Depth range starts ~30 cm; at ~37 cm the distance check matched a tape measure to ~0.3 mm.
+- Dark, shiny, or steep surfaces read as holes (0 mm).
 
 ## Rules
 - **Never commit to `main`.** Branch off the latest `main` first: `feature/…`, `fix/…`,
