@@ -78,6 +78,18 @@ the fit's own error (0 px) proves nothing; the new-scene check is the real test.
 Images: `docs/img/calibration-clicks.png`, `calibration-overlay.png`,
 `calib-check-no-calibration.png`, `calib-check-calibrated.png`, `calib-before-after.png`.
 
+### 2026-10-25 — recalibration with 16 points
+Box (no plate) moved to spots across the whole view, 16 corner pairs, homography with RANSAC.
+Honest error = **leave-one-out** (fit on 15 pairs, test on the one left out, repeat for all 16):
+| Fit | Median error | Max |
+|---|---|---|
+| Old 4-point homography (tested on the 16 new pairs) | 7.1 px | 13.1 px |
+| New 16-point homography (saved) | 4.9 px | 10.1 px |
+| New 16-point affine | 5.5 px | 8.4 px |
+
+~5 px ≈ 2.7 mm at 37 cm, mostly hand-click noise; the box's IR shadow blurs its left edge in depth.
+Affine and homography are about equal, so the camera is close to straight down.
+
 ### Known issues
 - **Glossy plate + overhead light = holes.** Shiny spots mirror the infrared pattern away, so
   those pixels read 0. Fix: side lighting, matte plate. Food itself is mostly matte.
