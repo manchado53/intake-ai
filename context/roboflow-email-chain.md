@@ -23,4 +23,5 @@ booking URLs are left out on purpose. The challenge brief itself is
 - Role: Solutions Architect, Field Engineering (customer-facing, discovery-heavy).
 - Nick values discovery structured as first / middle / last mile → frame the demo around a
   real customer's workflow (nursing-home dining + nursing), not just the model.
-- 4 panelists, 60 minutes, live over Zoom → keep a recorded backup run.
+- 4 panelists, 60 minutes over Zoom: 30 min demo (must be **live**, per the brief) + debrief.
+  A recorded run is only an emergency fallback, not the plan.
