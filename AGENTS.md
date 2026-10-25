@@ -23,6 +23,7 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
 | `plans/` | Plain-English plans; one file per task |
 | `context/` | Challenge brief + recruiting email summary |
+| `context/market-research.md` | Competitors + similar initiatives (Meal Vision, Nuvilab, AFINI-T, waste vision, patents), market size, honest differentiation |
 
 ## Setup (Windows laptop)
 - Python **3.11** venv at `.venv` (`openni` breaks on 3.13): `py -3.11 -m venv .venv`
