@@ -51,6 +51,15 @@ The DaBai DCW depth sensor uses Orbbec's legacy OpenNI protocol:
 | Error | ~0.3 mm (target ±5 mm) ✅ |
 | Depth frame | 640 × 480, ~83% of pixels with a reading |
 
+### 2026-10-25 — color/depth alignment check
+Overlay of depth edges (height jumps) on the color image, box + tape measure on the plate.
+| Finding | Detail |
+|---|---|
+| Depth was **mirrored** | OpenNI mirrors depth by default; the color webcam doesn't. Fixed: `set_mirroring_enabled(False)` in `tools/preview.py` (confirmed in the live preview). |
+| OpenNI registration does nothing | OpenNI has no color sensor here (color comes through Windows as a webcam), so `IMAGE_REGISTRATION_DEPTH_TO_COLOR` has no effect. |
+| Depth view is **wider** than color | Plate rim ~130→560 px wide in color vs ~190→490 px in depth: depth needs scale + shift to line up with color. To do: one-time calibration. |
+| Black glossy box | Top reads partly as holes, so its depth edges are unreliable. Use a light, matte target for calibration. |
+
 ### Known issues
 - **Glossy plate + overhead light = holes.** Shiny spots mirror the infrared pattern away, so
   those pixels read 0. Fix: side lighting, matte plate. Food itself is mostly matte.
