@@ -90,10 +90,10 @@ pulled up by depth edges with no color edge (table, shadows, hole borders).
 - **One flat plane.** `H` is exact only for the surface the points were clicked on (the box
   top, ~3 cm above the plate). Things at other heights shift a few px (parallax: two eyes see
   a raised object from slightly different angles). Food is low, so the error is small.
-- **Only 4 points, near the middle.** The perspective row can fit click noise. An
-  **affine** model (stretch + shift + tilt, 6 numbers, no perspective row) is steadier with
-  few points. Next: 8–12 pairs out to the plate rim and frame corners, plus a leave-one-out
-  test (fit without one pair, check on it).
+- **Few points = can't trust the fit's own error.** The first calibration used 4 points; it
+  was redone with 16 spread over the whole view and checked with **leave-one-out** (fit
+  without one pair, test on it): median 7.1 px (old) → 4.9 px (new). An **affine** model
+  (stretch + shift + tilt, 6 numbers, no perspective row) scored about the same (5.5 px).
 - **Camera moves = redo.** If the mount is bumped, `H` is wrong. Idea: check each scan by
   comparing the model's plate edge with the depth rim edge, and flag "needs recalibration".
 - **Why it's good enough for now:** % eaten = after / before. The same small offset is in
