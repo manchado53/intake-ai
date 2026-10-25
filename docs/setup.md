@@ -90,9 +90,30 @@ Honest error = **leave-one-out** (fit on 15 pairs, test on the one left out, rep
 ~5 px ≈ 2.7 mm at 37 cm, mostly hand-click noise; the box's IR shadow blurs its left edge in depth.
 Affine and homography are about equal, so the camera is close to straight down.
 
+### 2026-10-25 — plate-only check (16-point calibration)
+White glossy plate alone. Plate rim fit as a circle in color edges vs warped depth edges:
+| | Center | Radius |
+|---|---|---|
+| Color rim | (334, 243) | 210.5 px |
+| Depth rim | (332, 245) | 216.1 px |
+
+Center off 2.9 px (~1.6 mm): position is right. Depth rim ~5.6 px (~3 mm) wider all around:
+the depth edge fires at the outer foot of the sloped rim, and the fit plane (box top) sits
+higher than the rim. Food sits in the middle and masks get shrunk a few px, so this is fine.
+Rim gap median 6.4 px. Image: `docs/img/calib-plate-rim.png` (green = color edges,
+red = depth edges).
+
+Small red loops inside the plate are **holes**: 2.6% of the plate in one frame, 2.3% after a
+15-frame average; half the stray edges sit right next to a hole, the rest are holes that
+flicker between frames. Image: `docs/img/plate-holes.png` (magenta = holes). See Known issues.
+
 ### Known issues
-- **Glossy plate + overhead light = holes.** Shiny spots mirror the infrared pattern away, so
-  those pixels read 0. Fix: side lighting, matte plate. Food itself is mostly matte.
+- **Glossy plate = holes (depth 0).** The camera's own infrared dots bounce straight back off
+  the glaze like a mirror, so those spots read 0. Not the room light: the color image shows no
+  shine there, so moving the lamp won't help. ~2.5% of the white plate (see the 2026-10-25
+  plate check). Fixes: matte/paper plate (best), tilt the camera a few degrees (needs
+  recalibration), or fill small holes from neighbors in code. Food itself is mostly matte, and
+  `measure.py` skips 0 pixels.
 
 ### To do
 - Height test: object of known thickness (deck of cards ~18 mm) on the plate.
