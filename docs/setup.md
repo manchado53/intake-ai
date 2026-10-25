@@ -51,6 +51,33 @@ The DaBai DCW depth sensor uses Orbbec's legacy OpenNI protocol:
 | Error | ~0.3 mm (target ±5 mm) ✅ |
 | Depth frame | 640 × 480, ~83% of pixels with a reading |
 
+### 2026-10-25 — color/depth alignment check
+Overlay of depth edges (height jumps) on the color image, box + tape measure on the plate.
+| Finding | Detail |
+|---|---|
+| Depth was **mirrored** | OpenNI mirrors depth by default; the color webcam doesn't. Fixed: `set_mirroring_enabled(False)` in `tools/preview.py` (confirmed in the live preview). |
+| OpenNI registration does nothing | OpenNI has no color sensor here (color comes through Windows as a webcam), so `IMAGE_REGISTRATION_DEPTH_TO_COLOR` has no effect. |
+| Depth view is **wider** than color | Plate rim ~130→560 px wide in color vs ~190→490 px in depth: depth needs scale + shift to line up with color. To do: one-time calibration. |
+| Black glossy box | Top reads partly as holes, so its depth edges are unreliable. Use a light, matte target for calibration. |
+
+### 2026-10-25 — depth → color calibration
+`tools/calibrate.py`: click the same 4 box corners in color and depth, fit a homography
+(depth pixels → color pixels), saved to `calib/depth_to_color.json`. Result: scale ~1.33–1.35×,
+shift ~(−112, −86) px. Redo it if the camera moves. How it works: `docs/calibration.md`.
+
+Check on a **new scene** (box moved, not used in the fit): distance from each depth edge to the
+nearest color edge.
+| | Median gap | Edges within 3 px |
+|---|---|---|
+| No calibration (plain resize) | 25.0 px | 6% |
+| Calibrated | 6.6 px | 35% |
+
+Box edges and plate rim line up to ~2–3 px (~1.5 mm at 37 cm) by eye; the median is pulled up by
+depth edges with no color edge (table, shadows, hole borders). Only 4 point pairs were used, so
+the fit's own error (0 px) proves nothing; the new-scene check is the real test.
+Images: `docs/img/calibration-clicks.png`, `calibration-overlay.png`,
+`calib-check-no-calibration.png`, `calib-check-calibrated.png`, `calib-before-after.png`.
+
 ### Known issues
 - **Glossy plate + overhead light = holes.** Shiny spots mirror the infrared pattern away, so
   those pixels read 0. Fix: side lighting, matte plate. Food itself is mostly matte.

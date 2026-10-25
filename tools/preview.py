@@ -38,6 +38,7 @@ def open_depth():
     os.chdir(cwd)
     dev = openni2.Device.open_any()
     stream = dev.create_depth_stream()
+    stream.set_mirroring_enabled(False)  # OpenNI mirrors by default; the color webcam doesn't
     stream.start()
     return stream
 
