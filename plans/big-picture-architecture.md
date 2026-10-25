@@ -18,6 +18,16 @@ Roboflow Inference in Docker. The laptop is the fallback.
 Ground truth: whole-plate weighing on the Taylor 1 g scale, typed in by
 hand, gives a scorecard of camera % vs scale %.
 
+## Target customer
+Nursing homes (skilled nursing; memory care next). They already chart intake by law
+(0/25/50/75/100% by eye), run dietitian-approved cycle menus with standard portions
+(e.g. Sysco IMPAC, CBORD), and print a tray ticket per resident per meal. So:
+- The "before" scan is the reference, because portions vary (large/small orders, scoop drift).
+- Output is % eaten per item, then protein/kcal eaten from the menu's per-portion data.
+- The QR is the tray ticket: resident, diet, portion size, items.
+- v1 = regular-texture diet only; mechanical soft / puree are future work.
+Assisted and independent living are out of scope (restaurant-style, no intake charting).
+
 ## Why
 Picking the pieces and the data shapes now means photos taken tonight are
 labeled the right way (foods + plate), the capture script saves exactly what
