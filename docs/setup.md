@@ -63,7 +63,7 @@ Overlay of depth edges (height jumps) on the color image, box + tape measure on 
 ### 2026-10-25 — depth → color calibration
 `tools/calibrate.py`: click the same 4 box corners in color and depth, fit a homography
 (depth pixels → color pixels), saved to `calib/depth_to_color.json`. Result: scale ~1.33–1.35×,
-shift ~(−112, −86) px. Redo it if the camera moves.
+shift ~(−112, −86) px. Redo it if the camera moves. How it works: `docs/calibration.md`.
 
 Check on a **new scene** (box moved, not used in the fit): distance from each depth edge to the
 nearest color edge.
@@ -76,7 +76,7 @@ Box edges and plate rim line up to ~2–3 px (~1.5 mm at 37 cm) by eye; the medi
 depth edges with no color edge (table, shadows, hole borders). Only 4 point pairs were used, so
 the fit's own error (0 px) proves nothing; the new-scene check is the real test.
 Images: `docs/img/calibration-clicks.png`, `calibration-overlay.png`,
-`calib-check-no-calibration.png`, `calib-check-calibrated.png`.
+`calib-check-no-calibration.png`, `calib-check-calibrated.png`, `calib-before-after.png`.
 
 ### Known issues
 - **Glossy plate + overhead light = holes.** Shiny spots mirror the infrared pattern away, so
