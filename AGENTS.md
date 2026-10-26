@@ -23,6 +23,7 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `docs/calibration.md` | Why and how depth is lined up with color (homography math) |
 | `docs/clip-menu-test.md` | Can CLIP name each food crop from the meal's menu? Results + limits |
 | `research/clip_menu_test/` | Code + raw results for that test (Food-101, own venv) |
+| `docs/decisions.md` | Decision log: each big call, why, evidence, and when to revisit. Read before changing direction |
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
 | `plans/` | Plain-English plans; one file per task |
 | `context/` | Challenge brief + recruiting email summary |
@@ -41,10 +42,13 @@ learn. Read the latest plan before building, and don't treat design choices belo
   Unplugging the camera ends the program.
 
 ## Current direction (open to change)
-These are working choices, not rules. If one changes, update the plan and this list.
+These are working choices, not rules. The why and evidence for each is in `docs/decisions.md`;
+if one changes, add a new entry there and update this list.
 - Target customer: nursing homes (they already chart intake by eye, 0/25/50/75/100%).
-- Approach: segmentation model finds foods + plate; before vs after compared with depth math.
-- Classes so far: `chicken`, `rice`, `pasta`, `green-beans`, `fruit`, `plate`.
+- Scope v1: one main plate per scan, restaurant style; trays are v2 (D3).
+- Model: RF-DETR Seg, classes `food-item` + `plate`; CLIP names each food from the menu (D1).
+- Labels: SAM 3 on Rosie + label rules, checked on contact sheets (D2).
+- % eaten from food area / plate area, before vs after; depth only if it beats area (D7).
 - Ground truth: whole-plate weight on a 1 g kitchen scale.
 - Roboflow project: `manchado53/intake-ai-food-seg`.
 
