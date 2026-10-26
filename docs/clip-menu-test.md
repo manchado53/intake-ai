@@ -35,6 +35,21 @@ plate photo -> seg model -> crop per food -> CLIP: "which of THESE menu items is
 | Merged | 2 food photos glued side by side | seg model merges 2 touching foods |
 | Off-menu | truth left **out** of the menu; flag if CLIP's top score < a threshold | food not on the ticket |
 
+### What is real vs made up
+
+No image was AI-generated. Only the photos and their labels are real; every test case is built
+by code from them.
+
+| Piece | Real or made? | Source |
+|---|---|---|
+| Photos | Real | Food-101 validation split (web photos), downloaded by `fetch_data.py` |
+| Labels ("this is steak") | Real | Come with Food-101; this split was hand-checked by its authors |
+| The 24 foods | Chosen by hand | Picked to look like a nursing-home menu |
+| Menus | **Made up** | Random: truth + 2–3 other foods (random, or same group); no real facility menus |
+| Scraps | **Faked** | Random crop of the photo, not real eaten food |
+| Merged crops | **Faked** | 2 photos glued side by side |
+| Off-menu | **Made up** | Truth removed from the menu on purpose |
+
 ## Results
 
 ![CLIP results](img/clip-results.png)
