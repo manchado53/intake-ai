@@ -1,0 +1,318 @@
+{
+ "ViT-B-32": {
+  "full|plain": {
+   "all": 0.9,
+   "rand": 0.9848958333333333,
+   "similar": 0.9505208333333334
+  },
+  "scrap|plain": {
+   "all": 0.7208333333333333,
+   "rand": 0.9234375,
+   "similar": 0.8625
+  },
+  "full|photo": {
+   "all": 0.8979166666666667,
+   "rand": 0.9817708333333334,
+   "similar": 0.9526041666666667
+  },
+  "scrap|photo": {
+   "all": 0.7229166666666667,
+   "rand": 0.9166666666666666,
+   "similar": 0.8598958333333333
+  },
+  "full|photo_food": {
+   "all": 0.9270833333333334,
+   "rand": 0.9869791666666666,
+   "similar": 0.9677083333333333
+  },
+  "scrap|photo_food": {
+   "all": 0.7458333333333333,
+   "rand": 0.9229166666666667,
+   "similar": 0.8822916666666667
+  },
+  "full|ensemble": {
+   "all": 0.91875,
+   "rand": 0.9864583333333333,
+   "similar": 0.9677083333333333
+  },
+  "scrap|ensemble": {
+   "all": 0.75,
+   "rand": 0.9286458333333333,
+   "similar": 0.8932291666666666
+  },
+  "simgroup|full": {
+   "protein": 0.945,
+   "starch": 0.99,
+   "breakfast": 0.983,
+   "salad_soup": 0.983,
+   "dessert": 0.955
+  },
+  "simgroup|scrap": {
+   "protein": 0.825,
+   "starch": 0.948,
+   "breakfast": 0.85,
+   "salad_soup": 0.883,
+   "dessert": 0.902
+  },
+  "merged": {
+   "left": 0.522,
+   "right": 0.453,
+   "other": 0.025,
+   "top2_both": 0.822,
+   "winner_is_stronger_single": 0.655,
+   "one_of_two": 0.975
+  },
+  "offmenu|full": {
+   "on_menu_acc": 0.985,
+   "top_score": {
+    "auroc": 0.978,
+    "keep95pct": {
+     "on_acc": 0.936,
+     "off_flagged": 0.882,
+     "thr": 27.275
+    },
+    "keep90pct": {
+     "on_acc": 0.888,
+     "off_flagged": 0.948,
+     "thr": 28.305
+    }
+   },
+   "margin": {
+    "auroc": 0.941,
+    "keep95pct": {
+     "on_acc": 0.936,
+     "off_flagged": 0.683,
+     "thr": 2.789
+    },
+    "keep90pct": {
+     "on_acc": 0.887,
+     "off_flagged": 0.82,
+     "thr": 3.883
+    }
+   },
+   "softmax_p": {
+    "auroc": 0.946,
+    "keep95pct": {
+     "on_acc": 0.937,
+     "off_flagged": 0.703,
+     "thr": 0.933
+    },
+    "keep90pct": {
+     "on_acc": 0.887,
+     "off_flagged": 0.836,
+     "thr": 0.979
+    }
+   },
+   "vocab_anchor": {
+    "on_acc": 0.927,
+    "off_flagged": 0.985
+   }
+  },
+  "offmenu|scrap": {
+   "on_menu_acc": 0.931,
+   "top_score": {
+    "auroc": 0.922,
+    "keep95pct": {
+     "on_acc": 0.884,
+     "off_flagged": 0.639,
+     "thr": 26.269
+    },
+    "keep90pct": {
+     "on_acc": 0.84,
+     "off_flagged": 0.763,
+     "thr": 27.167
+    }
+   },
+   "margin": {
+    "auroc": 0.869,
+    "keep95pct": {
+     "on_acc": 0.885,
+     "off_flagged": 0.362,
+     "thr": 0.986
+    },
+    "keep90pct": {
+     "on_acc": 0.838,
+     "off_flagged": 0.557,
+     "thr": 1.706
+    }
+   },
+   "softmax_p": {
+    "auroc": 0.875,
+    "keep95pct": {
+     "on_acc": 0.885,
+     "off_flagged": 0.387,
+     "thr": 0.683
+    },
+    "keep90pct": {
+     "on_acc": 0.838,
+     "off_flagged": 0.594,
+     "thr": 0.817
+    }
+   },
+   "vocab_anchor": {
+    "on_acc": 0.746,
+    "off_flagged": 0.951
+   }
+  },
+  "embed_seconds_cpu": 102.9,
+  "n_embedded": 1260
+ },
+ "ViT-B-16": {
+  "full|plain": {
+   "all": 0.9375,
+   "rand": 0.9901041666666667,
+   "similar": 0.9739583333333334
+  },
+  "scrap|plain": {
+   "all": 0.7791666666666667,
+   "rand": 0.9328125,
+   "similar": 0.8796875
+  },
+  "full|photo": {
+   "all": 0.925,
+   "rand": 0.9875,
+   "similar": 0.9671875
+  },
+  "scrap|photo": {
+   "all": 0.7791666666666667,
+   "rand": 0.9291666666666667,
+   "similar": 0.8703125
+  },
+  "full|photo_food": {
+   "all": 0.9375,
+   "rand": 0.9901041666666667,
+   "similar": 0.9765625
+  },
+  "scrap|photo_food": {
+   "all": 0.7979166666666667,
+   "rand": 0.9348958333333334,
+   "similar": 0.8927083333333333
+  },
+  "full|ensemble": {
+   "all": 0.9291666666666667,
+   "rand": 0.9885416666666667,
+   "similar": 0.9723958333333333
+  },
+  "scrap|ensemble": {
+   "all": 0.7895833333333333,
+   "rand": 0.9375,
+   "similar": 0.8791666666666667
+  },
+  "simgroup|full": {
+   "protein": 0.946,
+   "starch": 1.0,
+   "breakfast": 1.0,
+   "salad_soup": 1.0,
+   "dessert": 0.962
+  },
+  "simgroup|scrap": {
+   "protein": 0.805,
+   "starch": 0.944,
+   "breakfast": 0.933,
+   "salad_soup": 0.933,
+   "dessert": 0.905
+  },
+  "merged": {
+   "left": 0.525,
+   "right": 0.467,
+   "other": 0.008,
+   "top2_both": 0.857,
+   "winner_is_stronger_single": 0.56,
+   "one_of_two": 0.992
+  },
+  "offmenu|full": {
+   "on_menu_acc": 0.99,
+   "top_score": {
+    "auroc": 0.985,
+    "keep95pct": {
+     "on_acc": 0.94,
+     "off_flagged": 0.928,
+     "thr": 28.25
+    },
+    "keep90pct": {
+     "on_acc": 0.894,
+     "off_flagged": 0.962,
+     "thr": 29.082
+    }
+   },
+   "margin": {
+    "auroc": 0.952,
+    "keep95pct": {
+     "on_acc": 0.94,
+     "off_flagged": 0.737,
+     "thr": 3.195
+    },
+    "keep90pct": {
+     "on_acc": 0.891,
+     "off_flagged": 0.883,
+     "thr": 4.624
+    }
+   },
+   "softmax_p": {
+    "auroc": 0.955,
+    "keep95pct": {
+     "on_acc": 0.94,
+     "off_flagged": 0.772,
+     "thr": 0.96
+    },
+    "keep90pct": {
+     "on_acc": 0.892,
+     "off_flagged": 0.887,
+     "thr": 0.989
+    }
+   },
+   "vocab_anchor": {
+    "on_acc": 0.938,
+    "off_flagged": 0.99
+   }
+  },
+  "offmenu|scrap": {
+   "on_menu_acc": 0.938,
+   "top_score": {
+    "auroc": 0.925,
+    "keep95pct": {
+     "on_acc": 0.892,
+     "off_flagged": 0.678,
+     "thr": 27.016
+    },
+    "keep90pct": {
+     "on_acc": 0.845,
+     "off_flagged": 0.788,
+     "thr": 27.934
+    }
+   },
+   "margin": {
+    "auroc": 0.881,
+    "keep95pct": {
+     "on_acc": 0.892,
+     "off_flagged": 0.376,
+     "thr": 1.044
+    },
+    "keep90pct": {
+     "on_acc": 0.844,
+     "off_flagged": 0.604,
+     "thr": 1.924
+    }
+   },
+   "softmax_p": {
+    "auroc": 0.888,
+    "keep95pct": {
+     "on_acc": 0.892,
+     "off_flagged": 0.431,
+     "thr": 0.711
+    },
+    "keep90pct": {
+     "on_acc": 0.844,
+     "off_flagged": 0.637,
+     "thr": 0.851
+    }
+   },
+   "vocab_anchor": {
+    "on_acc": 0.798,
+    "off_flagged": 0.967
+   }
+  },
+  "embed_seconds_cpu": 319.9,
+  "n_embedded": 1260
+ }
+}

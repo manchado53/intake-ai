@@ -21,6 +21,8 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `tools/capture.py` | Shoot staged meals: raw color + 16-bit depth + scale grams → `data/raw/` + `log.csv` (`--fake` = no camera) |
 | `tools/calibrate.py` | Click matching points → depth→color homography in `calib/depth_to_color.json` |
 | `docs/calibration.md` | Why and how depth is lined up with color (homography math) |
+| `docs/clip-menu-test.md` | Can CLIP name each food crop from the meal's menu? Results + limits |
+| `research/clip_menu_test/` | Code + raw results for that test (Food-101, own venv) |
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
 | `plans/` | Plain-English plans; one file per task |
 | `context/` | Challenge brief + recruiting email summary |
