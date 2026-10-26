@@ -28,6 +28,7 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `context/` | Challenge brief + recruiting email summary |
 | `context/market-research.md` | Competitors + similar initiatives (Meal Vision, Nuvilab, AFINI-T, waste vision, patents), market size, honest differentiation |
 | `context/nursing-home-rules.md` | US nursing-home rules + practice for meal intake (CMS F-tags, MDS, HIPAA, design rules). Read before designing alerts, reports, or privacy |
+| `context/senior-dining-service.md` | How senior homes serve meals (plated vs tray, 9" plate, charting, puree) + sources. Why v1 = one main plate, tray-sized view |
 
 ## Setup (Windows laptop)
 - Python **3.11** venv at `.venv` (`openni` breaks on 3.13): `py -3.11 -m venv .venv`
