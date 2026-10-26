@@ -24,6 +24,7 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
 | `plans/` | Plain-English plans; one file per task |
 | `context/` | Challenge brief + recruiting email summary |
+| `context/market-research.md` | Competitors + similar initiatives (Meal Vision, Nuvilab, AFINI-T, waste vision, patents), market size, honest differentiation |
 | `context/nursing-home-rules.md` | US nursing-home rules + practice for meal intake (CMS F-tags, MDS, HIPAA, design rules). Read before designing alerts, reports, or privacy |
 
 ## Setup (Windows laptop)
