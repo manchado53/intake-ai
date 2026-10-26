@@ -30,6 +30,18 @@ SAM 3 only takes short prompts and a confidence cutoff, so:
 3. **Hand fix in Roboflow:** delete crumb/bone/smear masks, split merged foods, fill sauce into
    its food. These rules are the checklist.
 
+### Tested 2026-10-25 (SAM 3 preview, cutoff 0.5)
+
+| Image | Prompt `food` | Menu prompts (`chicken`, `pasta`, `roasted red peppers`) |
+|---|---|---|
+| Full plate (s0_1) | 12 food masks | 14 food masks |
+| Bones only (s6_1) | 14 (crumbs + bones) | **0** food |
+| Empty plate (empty_1) | 27 (crumbs) | **0** food |
+
+A cutoff can't fix the generic prompt (crumbs scored up to 0.79, real pasta down to 0.52).
+**Decision: prompt SAM 3 with each meal's menu items, all mapped to `food-item`.** This is the
+same menu the tray ticket carries, so it matches the product.
+
 ## Scorecard rule that goes with it
 
 % eaten counts the **edible** part only: edible grams = served grams − bones (weighed at the end,
