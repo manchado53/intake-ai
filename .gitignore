@@ -21,3 +21,6 @@ Thumbs.db
 
 # camera SDK runtime logs
 Log/
+
+# research downloads
+research/*/data/
