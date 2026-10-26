@@ -18,12 +18,14 @@ learn. Read the latest plan before building, and don't treat design choices belo
 |---|---|
 | `tools/preview.py` | Live color + depth view, for aiming the camera |
 | `tools/measure.py` | Drag a box on depth → height (mm) + volume (cm³) |
+| `tools/capture.py` | Shoot staged meals: raw color + 16-bit depth + scale grams → `data/raw/` + `log.csv` (`--fake` = no camera) |
 | `tools/calibrate.py` | Click matching points → depth→color homography in `calib/depth_to_color.json` |
 | `docs/calibration.md` | Why and how depth is lined up with color (homography math) |
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
 | `plans/` | Plain-English plans; one file per task |
 | `context/` | Challenge brief + recruiting email summary |
 | `context/market-research.md` | Competitors + similar initiatives (Meal Vision, Nuvilab, AFINI-T, waste vision, patents), market size, honest differentiation |
+| `context/nursing-home-rules.md` | US nursing-home rules + practice for meal intake (CMS F-tags, MDS, HIPAA, design rules). Read before designing alerts, reports, or privacy |
 
 ## Setup (Windows laptop)
 - Python **3.11** venv at `.venv` (`openni` breaks on 3.13): `py -3.11 -m venv .venv`
