@@ -39,7 +39,8 @@ learn. Read the latest plan before building, and don't treat design choices belo
 These are working choices, not rules. If one changes, update the plan and this list.
 - Target customer: nursing homes (they already chart intake by eye, 0/25/50/75/100%).
 - Approach: segmentation model finds foods + plate; before vs after compared with depth math.
-- Classes so far: `chicken`, `rice`, `pasta`, `green-beans`, `fruit`, `plate`.
+- Classes: `food-item` + `plate` (class-agnostic); CLIP names each food from the meal's menu.
+  What gets a mask: `plans/label-rules.md`.
 - Ground truth: whole-plate weight on a 1 g kitchen scale.
 - Roboflow project: `manchado53/intake-ai-food-seg`.
 
