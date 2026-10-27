@@ -130,6 +130,9 @@ Roboflow, which the brief requires.
 - meal_01 (14 train images), 10 epochs: 115 s total.
 - ~1000 images, 2 epochs: 65 s total, so 50-100 epochs ≈ 20-40 min (estimate).
 - Rosie's V100 nodes fail with this setup (old driver); use H100 or T4.
+- Size sweep (2026-10-27): Small ties or beats Nano/Medium/Large/XLarge on every held-out
+  set (meal_03 0.883, Large 0.883, others lower), so Small stays. See
+  `docs/experiments/2026-10-27-seg-sizes.md`.
 
 **Revisit if:** custom seg weights can't be uploaded to Roboflow (then the Orin loads the
 weights directly and Roboflow Inference runs the rest).
