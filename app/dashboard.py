@@ -5,7 +5,7 @@ Reads the same SQLite DB the API server writes (env INTAKE_DB, default app/dashb
 """
 import base64
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -21,6 +21,7 @@ FEED_LIMIT = 15
 MEALS = ("breakfast", "lunch", "dinner")
 ACCENT, LOW, INK = "#8B5CF6", "#EF4444", "#251742"  # match .streamlit/config.toml
 CSS = """<style>
+[data-testid="stSidebarCollapsedControl"], [data-testid="stSidebar"] { display: none; }
 h1, h2, h3 { letter-spacing: -.03em; }
 h1 { color: #251742; }
 [data-testid="stMetricLabel"] p, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] label p {
@@ -32,7 +33,8 @@ h1 { color: #251742; }
 .lbl::before { content: "■  "; color: #C29AF6; }
 </style>"""
 
-st.set_page_config(page_title="Intake.ai – dietitian view", page_icon="🍽️", layout="wide")
+st.set_page_config(page_title="Intake.ai – dietitian view", page_icon="🍽️", layout="wide",
+                   initial_sidebar_state="collapsed")
 
 profiles = store.load_profiles()
 RESIDENTS = {r["id"]: r for r in profiles["residents"]}
@@ -156,6 +158,25 @@ def cards_dialog():
 
 # ---------- the Today screen ----------
 
+def station_status(scans):
+    """Kitchen station health from its newest real scan."""
+    real = [s["time"] for s in scans if not s.get("synthetic")]
+    if not real:
+        return "station: no scans yet"
+    mins = (datetime.now() - datetime.fromisoformat(max(real))).total_seconds() / 60
+    return f"station last scan {'just now' if mins < 1 else f'{mins:.0f} min ago'}"
+
+
+def export_csv():
+    scans, records, _ = load()
+    rows = [{"date": m["date"], "meal": m["meal"], "resident_id": m["resident_id"],
+             "resident": RESIDENTS.get(m["resident_id"], {}).get("name"),
+             "room": RESIDENTS.get(m["resident_id"], {}).get("room"),
+             "pct_eaten": m["pct"], "chart_bin": m["chart_bin"], "kcal": m["kcal"], "protein_g": m["protein_g"],
+             "synthetic": m["synthetic"]} for m in records]
+    return pd.DataFrame(rows).to_csv(index=False).encode("utf-8")
+
+
 def kpis(records, review, at_risk, today):
     done = [m for m in records if m["date"] == today.isoformat() and m["pct"] is not None]
     a, b, c, d = st.columns(4)
@@ -243,7 +264,7 @@ def today_screen():
                if f"risk:{a['resident']['id']}:{a['meals'][-1]['time']}" not in acks]
     review = [s for s in scans if s.get("status") == "ok" and s.get("needs_review")
               and f"review:{s['scan_id']}" not in acks][:5]
-    st.caption(f"Today · {today.strftime('%a %b %d, %Y')} · updates every {REFRESH_S} s")
+    st.caption(f"Today · {today.strftime('%a %b %d, %Y')} · {station_status(scans)} · updates every {REFRESH_S} s")
     kpis(records, review, at_risk, today)
     main, side = st.columns([2.2, 1], gap="large")
     with main:
@@ -254,12 +275,13 @@ def today_screen():
 
 
 st.markdown(CSS, unsafe_allow_html=True)
-st.logo(str(Path(__file__).resolve().parent / "assets" / "roboflow-logo.svg"), size="large")
-st.title("Intake.ai – dietitian view")
-if st.sidebar.button("Print QR cards", width="stretch"):
+st.logo(str(Path(__file__).resolve().parent / "assets" / "roboflow-logo-ink.svg"), size="large")
+head, qr, csv = st.columns([5, 1.2, 1.2], vertical_alignment="bottom")
+head.title("Intake.ai – dietitian view")
+if qr.button("Print QR cards", width="stretch"):
     cards_dialog()
-st.sidebar.caption("Fake residents only")
-st.sidebar.caption("Intake.ai · powered by Roboflow Inference")
+csv.download_button("Export for charting", export_csv(), "intake-meals.csv", "text/csv", width="stretch",
+                    help="Every recorded meal as CSV, for the EHR / MDS Section K paperwork")
 
 today_screen()
 rid = st.session_state.pop("open_rid", None)
