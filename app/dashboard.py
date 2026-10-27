@@ -22,6 +22,9 @@ MEALS = ("breakfast", "lunch", "dinner")
 ACCENT, LOW, INK = "#8B5CF6", "#EF4444", "#251742"  # match .streamlit/config.toml
 CSS = """<style>
 [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebar"] { display: none; }
+[data-testid="stHeader"] { background: #251742; border-bottom: 3px solid #C29AF6; height: 4rem; }
+[data-testid="stHeader"] * { color: #F4F2EC !important; }
+[data-testid="stToolbar"] button:hover { background: #3A2766; }
 h1, h2, h3 { letter-spacing: -.03em; }
 h1 { color: #251742; }
 [data-testid="stMetricLabel"] p, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] label p {
@@ -275,7 +278,7 @@ def today_screen():
 
 
 st.markdown(CSS, unsafe_allow_html=True)
-st.logo(str(Path(__file__).resolve().parent / "assets" / "roboflow-logo-ink.svg"), size="large")
+st.logo(str(Path(__file__).resolve().parent / "assets" / "roboflow-logo.svg"), size="large")
 head, qr, csv = st.columns([5, 1.2, 1.2], vertical_alignment="bottom")
 head.title("Intake.ai – dietitian view")
 if qr.button("Print QR cards", width="stretch"):
