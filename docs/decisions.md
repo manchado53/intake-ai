@@ -149,3 +149,32 @@ plate area. Depth (volume) is added only if it measurably lowers the error.
 
 **Revisit if:** food eaten from the top of a pile (mashed potatoes, rice) shows large error;
 that is where area is weakest and depth should help.
+
+---
+
+## D8 — Public data follows our label rules, or it's dropped (2026-10-26)
+**Decision:** Every public set is converted to our two classes and our rules before training.
+Images that can't be made to follow the rules are dropped, not "mostly" kept.
+
+| Rule | FLIC (canteen trays) | MyFoodRepo (home meals) |
+|---|---|---|
+| One blob per **menu item** | one course color on a plate = one blob (mixed veg, mixed salad = one item) | keep only images with item-level, non-overlapping labels |
+| Different foods = different blobs | drop "cod with potatoes" plates (2 foods in one color) | — |
+| No unlabeled food in frame | gray out everything outside this plate's circle, but keep this plate's own food (e.g. pizza overhang); label lone pieces (pea, carrot slice) as their own blobs | drop images where SAM 3 finds food that has no label |
+| Plate = full disk | SAM 3 plate rim → fitted circle; bowls count as `plate` | SAM 3 plate → fitted ellipse; drop images with no plate |
+| Leftovers | keep after-meal plates; empty plates = negatives; drop plastic-covered plates | — |
+
+**Why:** One mislabeled pattern repeated hundreds of times teaches the model the wrong rule.
+Unlabeled food is the worst case: it teaches "food = background".
+
+**Evidence:** FLIC pilot (20 trays, 102 crops, 85% ok); MyFoodRepo filter 44k → 2,015 candidates
+before the SAM 3 check.
+
+**Revisit if:** v1 (ours + public) scores worse than v0 (ours only) on our unseen test meal.
+
+---
+
+## Parked ideas (not doing yet; revisit only if the score says so)
+- **Blur augmentation.** FLIC plate crops are upscaled ~1.8x and softer than our photos
+  (sharpness ~50-180 vs ~470). Only add a light blur augmentation (~25% of images) if the model
+  does worse on soft or out-of-focus images. Not added now, to avoid over-engineering.
