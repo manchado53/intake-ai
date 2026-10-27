@@ -74,8 +74,11 @@ class Scanner:
                 "items": [], "total_pct_eaten": None, "chart_bin": None, "kcal": None, "protein_g": None,
                 "annotated_jpg_b64": None}
         fracs = None
+        # QR already read on the station -> CLIP picks only among this resident's items
+        # (fewer look-alikes, e.g. fish vs mashed potatoes); unknown card -> the whole menu
+        plan_hint = self.residents.get(local_qr, {}).get("meals", {}).get(meal) if meal else None
         try:
-            res = self.client.run(frame, self.menu, hint=hint)
+            res = self.client.run(frame, plan_hint or self.menu, hint=hint)
         except Exception as ex:
             print(f"workflow error: {type(ex).__name__}: {ex}")
             res = None
