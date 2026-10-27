@@ -174,6 +174,37 @@ before the SAM 3 check.
 
 ---
 
+## D9 — Success metrics: model, task, ops; % eaten error is the headline (2026-10-27)
+**Decision:** Every model and Workflow version is judged on three layers. The task layer decides.
+
+| Layer | Metric | Target | Now |
+|---|---|---|---|
+| Model | Mask mAP50:95 on an unseen meal (meal_03) | >= 0.80 | 0.88 (v1b) |
+| Model | Plate found on every test image | 100% | not checked |
+| Model | Food P/R/F1 at the F1-best confidence | report | — |
+| **Task** | **Average error, % eaten vs scale (points)** | **<= 10** | not measured |
+| Task | Bias (signed average error) | within +/-5 | not measured |
+| Task | Same 25% bin as the scale | >= 80% | not measured |
+| Task | Low eaters caught (scale < 50% eaten) | >= 90% | not measured |
+| Ops | Photo to % on the Orin | < 1 s | not measured |
+| Ops | Plates sent to review (Active Learning) | <= 10% | — |
+
+Blob-count exact % stays a diagnostic, not a target.
+
+**Why:**
+- Roboflow gives no "good mAP" number; it compares models on a fixed test set and ranks
+  Workflow Eval candidates by average error, then bias, then exact matches, then latency.
+- Its own tutorial shows a high mask score (0.91 mIoU) with a wrong task answer (0/5 counts).
+- The bar to beat is staff eyeballing: right ~44% of the time, ~20 points high, misses low eaters.
+  <10 points is the "acceptable" margin used in long-term-care plate research.
+
+**Evidence:** `docs/research/success-metrics.md` (sources). Targets for bias, bin agreement,
+low-eater recall, latency and review rate are our own calls, not from a source.
+
+**Revisit if:** area-based % eaten can't reach <= 10 points (then depth/volume, D7).
+
+---
+
 ## Parked ideas (not doing yet; revisit only if the score says so)
 - **Blur augmentation.** FLIC plate crops are upscaled ~1.8x and softer than our photos
   (sharpness ~50-180 vs ~470). Only add a light blur augmentation (~25% of images) if the model
