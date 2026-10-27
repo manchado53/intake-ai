@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-28",
+  "meal_times": {"breakfast": ["06:00", "10:00"], "lunch": ["10:00", "15:00"], "dinner": ["15:00", "21:00"]},
+  "residents": [
+    {"id": "R01", "name": "Mary R.", "room": "104", "diet": "regular",
+     "meals": {"lunch": ["white fish", "pasta", "carrots"], "dinner": ["chicken", "mashed potatoes", "mixed vegetables"]}},
+    {"id": "R02", "name": "John D.", "room": "110", "diet": "regular",
+     "meals": {"lunch": ["pork chop", "rice", "green beans"], "dinner": ["chicken", "mashed potatoes", "mixed vegetables"]}},
+    {"id": "R03", "name": "Rosa M.", "room": "112", "diet": "regular",
+     "meals": {"lunch": ["chicken", "mashed potatoes", "mixed vegetables"], "dinner": ["white fish", "pasta", "carrots"]}},
+    {"id": "R04", "name": "Walter K.", "room": "118", "diet": "regular",
+     "meals": {"lunch": ["pork chop", "rice", "green beans"], "dinner": ["white fish", "pasta", "carrots"]}}
+  ],
+  "menu_items": {
+    "white fish":       {"portion": "4 oz",    "kcal": 120, "protein_g": 26},
+    "pasta":            {"portion": "1 cup",   "kcal": 220, "protein_g": 8},
+    "carrots":          {"portion": "1/2 cup", "kcal": 27,  "protein_g": 1},
+    "pork chop":        {"portion": "4 oz",    "kcal": 230, "protein_g": 30},
+    "rice":             {"portion": "1/2 cup", "kcal": 103, "protein_g": 2},
+    "green beans":      {"portion": "1/2 cup", "kcal": 22,  "protein_g": 1},
+    "chicken":          {"portion": "4 oz",    "kcal": 190, "protein_g": 35},
+    "mashed potatoes":  {"portion": "1/2 cup", "kcal": 110, "protein_g": 2},
+    "mixed vegetables": {"portion": "1/2 cup", "kcal": 59,  "protein_g": 3}
+  }
+}

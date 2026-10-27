@@ -1,0 +1,27 @@
+# Intake.ai look, after summit.roboflow.com, pushed purple: lavender paper, ink type, lavender accent, square corners,
+# mono labels (tokens + sources in docs/research/roboflow-ui-style.md)
+[theme]
+base = "light"
+primaryColor = "#6F3FD8"
+backgroundColor = "#F7F3FE"
+secondaryBackgroundColor = "#ECE1FC"
+textColor = "#121110"
+linkColor = "#6F3FD8"
+borderColor = "#D9C1F3"
+font = "Inter Tight:https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap, sans-serif"
+codeFont = "Geist Mono:https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap, monospace"
+headingFontWeights = [500, 500, 500, 500, 500, 500]
+baseRadius = "0px"
+buttonRadius = "0px"
+violetColor = "#C29AF6"
+blueColor = "#8FD3FF"
+greenColor = "#15803D"
+orangeColor = "#D97706"
+redColor = "#EF4444"
+chartCategoricalColors = ["#C29AF6", "#6F3FD8", "#8FD3FF", "#FFA6D6", "#8B887F", "#EF4444"]
+
+[theme.sidebar]
+backgroundColor = "#251742"
+secondaryBackgroundColor = "#3A2766"
+textColor = "#F4F2EC"
+borderColor = "#3A2766"
