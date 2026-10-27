@@ -3,6 +3,7 @@ Usage: python train_variant.py <export_dir> <variant: v0|v1|v1b> [epochs]
   v0  = our meals only (file names start with meal_)
   v1  = all train minus holdout + exclude lists
   v1b = v1 + AUG_CONSERVATIVE (colour / brightness)
+Env SIZE = Nano|Small|Medium|Large|XLarge (default Small); runs go to runs/<variant>[_<size>].
 Valid (meal_04) and test (meal_03) are copied unchanged.
 """
 import json, os, shutil, sys, time
@@ -26,7 +27,9 @@ def names(p):
 holdout = names(ROOT / "lists/holdout_flic.txt") | names(ROOT / "lists/holdout_mfr.txt")
 exclude = names(ROOT / "lists/exclude.txt")
 
-out = ROOT / f"data_{variant}"
+size = os.environ.get("SIZE", "Small")
+tag = variant if size == "Small" else f"{variant}_{size.lower()}"
+out = ROOT / f"data_{tag}"  # per run, so parallel jobs don't clobber each other
 shutil.rmtree(out, ignore_errors=True)
 for split in ("train", "valid", "test"):
     src = export / split
@@ -61,6 +64,6 @@ if variant == "v1b":
     from rfdetr.datasets.aug_configs import AUG_CONSERVATIVE
     kw["aug_config"] = AUG_CONSERVATIVE
 t0 = time.time()
-rfdetr.RFDETRSegSmall().train(dataset_dir=str(out), output_dir=str(ROOT / f"runs/{variant}"),
-                             epochs=epochs, batch_size=8, grad_accum_steps=2, **kw)
-print(f"TRAIN_SECONDS {variant} {time.time() - t0:.0f}", flush=True)
+getattr(rfdetr, f"RFDETRSeg{size}")().train(dataset_dir=str(out), output_dir=str(ROOT / f"runs/{tag}"),
+                                           epochs=epochs, batch_size=8, grad_accum_steps=2, **kw)
+print(f"TRAIN_SECONDS {tag} {time.time() - t0:.0f}", flush=True)
