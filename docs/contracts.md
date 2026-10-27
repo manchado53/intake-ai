@@ -65,7 +65,7 @@ Sent once per scan (before **and** after). JSON body:
     {"name": "pasta",      "before_frac": 0.164, "after_frac": 0.123, "pct_eaten": 25.0, "kcal": 55.0,  "protein_g": 2.0},
     {"name": "carrots",    "before_frac": 0.070, "after_frac": 0.070, "pct_eaten": 0.0,  "kcal": 0.0,   "protein_g": 0.0}
   ],
-  "total_pct_eaten": 46.6,
+  "total_pct_eaten": 44.4,
   "chart_bin": 50,
   "kcal": 150.8,
   "protein_g": 22.7,
