@@ -60,14 +60,17 @@ def test_dashboard_renders(api, monkeypatch):
 
     _, db = api
     monkeypatch.setenv("INTAKE_DB", db)
-    for page in ("Live feed", "Residents", "QR cards"):
-        at = AppTest.from_file(str(ROOT / "app" / "dashboard.py"), default_timeout=60)
-        at.run()
-        at.sidebar.radio[0].set_value(page).run()
-        assert not at.exception, at.exception
-        text = " ".join(e.value for e in at.error)
-        if page != "QR cards":
-            assert "John D." in text and "notify RD" in text
-        if page == "Live feed":
-            md = " ".join(m.value for m in at.markdown)
-            assert "Mary R." in md and "AFTER" in md
+    at = AppTest.from_file(str(ROOT / "app" / "dashboard.py"), default_timeout=60)
+    at.run()
+    assert not at.exception, at.exception
+    md = " ".join(m.value for m in at.markdown)
+    assert "John D." in md and "notify RD" in md  # seeded 3-low-meals alert
+    assert "Mary R." in md and "ate" in md  # live feed
+    assert [m.label for m in at.metric][:3] == ["Meals recorded today", "Average eaten", "Residents at risk"]
+
+    at.button(key="n-R02").click().run()  # Notify RD clears the alert
+    assert not at.exception, at.exception
+    assert "LOW INTAKE" not in " ".join(m.value for m in at.markdown)
+
+    at.button(key="o-R01").click().run()  # resident dialog
+    assert not at.exception, at.exception

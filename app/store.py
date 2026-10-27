@@ -38,6 +38,7 @@ def connect(path: str | None = None) -> sqlite3.Connection:
         )"""
     )
     con.execute("CREATE INDEX IF NOT EXISTS scans_time ON scans(time)")
+    con.execute("CREATE TABLE IF NOT EXISTS acks (key TEXT PRIMARY KEY, action TEXT NOT NULL, time TEXT NOT NULL)")
     return con
 
 
@@ -63,3 +64,13 @@ def list_scans(con: sqlite3.Connection, limit: int | None = None) -> list[dict]:
         d["synthetic"] = bool(synthetic)
         out.append(d)
     return out
+
+
+def add_ack(con: sqlite3.Connection, key: str, action: str) -> None:
+    """Remember that staff handled an alert or a review ("notified", "reviewed")."""
+    con.execute("INSERT OR REPLACE INTO acks VALUES (?,?,?)", (key, action, datetime.now().isoformat(timespec="seconds")))
+    con.commit()
+
+
+def list_acks(con: sqlite3.Connection) -> dict:
+    return {k: (a, t) for k, a, t in con.execute("SELECT key, action, time FROM acks")}
