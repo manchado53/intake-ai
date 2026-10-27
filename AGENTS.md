@@ -24,6 +24,8 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `docs/clip-menu-test.md` | Can CLIP name each food crop from the meal's menu? Results + limits |
 | `research/clip_menu_test/` | Code + raw results for that test (Food-101, own venv) |
 | `docs/decisions.md` | Decision log: each big call, why, evidence, and when to revisit. Read before changing direction |
+| `docs/experiments/` | One file per training run: question, results table, mask pictures, setup to reproduce |
+| `training/` | Rosie scripts: build filtered dataset + train RF-DETR Seg (`train_variant.py`, `overnight.sbatch`), score + draw (`eval_pub.py`, `viz04.py`) |
 | `docs/datasets.md` | What each data source contains (our meals, FLIC, MyFoodRepo): photos, weights, menus, limits |
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
 | `plans/` | Plain-English plans; one file per task |
