@@ -39,3 +39,23 @@ app.roboflow.com is a login-gated SPA; nothing useful in public HTML.
 | Status: idle / ready / ok / review / error | `#3A3644` / `#6329B7` / `#15803D` / `#F5A524` (dark text) / `#D92D20` |
 | Fonts | Inter (dashboard, Google Fonts) or system sans; mono labels (Geist Mono / ui-monospace) |
 | Radius | 8 px |
+
+## Update 2026-10-27: follow summit.roboflow.com
+
+The user preferred the Visual Intelligence Summit site, so both UIs now follow its tokens, read
+from its stylesheet (`/_next/static/immutable/chunks/3ibrnkhpeeptj.css`):
+
+| Token | Value | Summit CSS name |
+|---|---|---|
+| Ink (dark bg / text) | `#121110` | `--color-ink` |
+| Cream (light bg) | `#F4F2EC` | `--color-cream` |
+| Lavender (accent) | `#C29AF6` | `--color-lavender`, `--primary` |
+| Lines / soft fills | `#E6E3DC`, `#D9C1F3`, `#2A2725`, `#1C1A19` | ring / surface colours |
+| Corners | `0` (square) | `--radius: 0rem` |
+| Sans | Suisse (licensed) -> we use Inter Tight | `--font-suisse` |
+| Mono | Geist Mono, uppercase labels, `.08-.1em` tracking | `--font-geist-mono` |
+| Headlines | tight, `-.03em` tracking | `letter-spacing:-.03em` |
+
+Look on the page: ink sections with huge lavender type, cream sections, dotted grids, and
+lavender "viewfinder" corner brackets around media. The station screen uses ink + dot grid +
+bracketed panels; the dashboard uses cream + ink sidebar.

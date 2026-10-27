@@ -4,37 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Intake.ai station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter+Tight:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #120d1f; --fg: #f4f2ec; --muted: #b3aec2; --panel: #1b1430; --bar: #2e2349; --line: #2e2349;
-    --accent: #9b5cff; --ink: #161026;
+  /* summit.roboflow.com look: ink + lavender + cream, square corners, mono labels, viewfinder brackets */
+  :root { --ink: #121110; --ink2: #1c1a19; --line: #2a2725; --cream: #f4f2ec; --muted: #8b887f;
+    --lav: #c29af6; --lav2: #d9c1f3;
+    --sans: "Suisse", "Inter Tight", "Helvetica Neue", Arial, sans-serif;
     --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-    font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, Roboto, sans-serif; }
-  body { display: flex; flex-direction: column; padding: 1.2vh 1.5vw; gap: 1.2vh; }
-  #status { border-radius: 8px; padding: 2vh 2vw; background: #3a3644; color: var(--fg); transition: background .2s;
-    display: flex; align-items: center; gap: 2vw; }
+  html, body { margin: 0; height: 100%; color: var(--cream); font-family: var(--sans);
+    background: var(--ink) radial-gradient(var(--line) 1px, transparent 1.2px) 0 0 / 18px 18px; }
+  body { display: flex; flex-direction: column; padding: 1.4vh 1.6vw; gap: 1.4vh; }
+  #status { padding: 2vh 2vw; background: var(--ink2); color: var(--cream); transition: background .2s;
+    display: flex; align-items: center; gap: 2vw; border: 1px solid var(--line); }
   #words { flex: 1; min-width: 0; }
-  #scan { display: none; font: inherit; font-size: clamp(24px, 4.5vw, 72px); font-weight: 800; color: var(--ink);
-    background: var(--fg); border: 0; border-radius: 8px; padding: 1.5vh 3vw; cursor: pointer;
-    box-shadow: 0 0 0 4px rgba(244, 242, 236, .25); }
+  #text { font-size: clamp(24px, 4.6vw, 80px); font-weight: 500; line-height: 1; letter-spacing: -.03em; }
+  #sub { font: 400 clamp(13px, 1.9vw, 30px) var(--mono); text-transform: uppercase; letter-spacing: .06em;
+    margin-top: 1vh; opacity: .85; min-height: 1.2em; }
+  #scan { display: none; font: 500 clamp(22px, 3.8vw, 64px) var(--mono); letter-spacing: .1em; color: var(--lav);
+    background: var(--ink); border: 0; padding: 1.6vh 3vw; cursor: pointer; }
+  #scan:hover { background: #000; }
   #scan:active { transform: scale(.97); }
-  #text { font-size: clamp(24px, 4.6vw, 80px); font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
-  #sub { font-size: clamp(16px, 2.6vw, 40px); margin-top: .6vh; opacity: .95; min-height: 1.2em; }
-  #views { display: flex; gap: 1.5vw; flex: 1; min-height: 0; }
-  .view { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 8px; padding: 1vh 1vw; }
-  .view h2 { margin: 0 0 .6vh; font: 500 clamp(11px, 1.3vw, 18px) var(--mono); color: var(--muted);
-    text-transform: uppercase; letter-spacing: .08em; }
-  .view img { width: 100%; flex: 1; min-height: 0; object-fit: contain; border-radius: 4px; }
+  #views { display: flex; gap: 1.6vw; flex: 1; min-height: 0; }
+  .view { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 1.2vh 1vw;
+    background:
+      linear-gradient(var(--lav), var(--lav)) left top / 22px 2px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) left top / 2px 22px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) right top / 22px 2px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) right top / 2px 22px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) left bottom / 22px 2px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) left bottom / 2px 22px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) right bottom / 22px 2px no-repeat,
+      linear-gradient(var(--lav), var(--lav)) right bottom / 2px 22px no-repeat,
+      var(--ink2); }
+  .view h2 { margin: 0 0 .8vh; font: 400 clamp(11px, 1.2vw, 17px) var(--mono); color: var(--muted);
+    text-transform: uppercase; letter-spacing: .1em; }
+  .view h2::before { content: "■  "; color: var(--lav); }
+  .view img { width: 100%; flex: 1; min-height: 0; object-fit: contain; }
   #items { display: grid; gap: 1vh; }
   .item { display: grid; grid-template-columns: minmax(8em, 22%) 1fr 4.5em; align-items: center; gap: 1vw;
-    font-size: clamp(16px, 2.6vw, 40px); font-weight: 700; }
-  .track { height: 1.1em; background: var(--bar); border-radius: 6px; overflow: hidden; }
-  .fill { height: 100%; background: var(--accent); transition: width .4s; }
-  .pct { text-align: right; font-variant-numeric: tabular-nums; }
-  #foot { font: clamp(11px, 1.1vw, 15px) var(--mono); color: var(--muted); display: flex; justify-content: space-between; }
-  #foot b { color: var(--fg); font-weight: 600; }
+    font-size: clamp(16px, 2.4vw, 38px); font-weight: 500; letter-spacing: -.02em; }
+  .track { height: .9em; background: var(--line); overflow: hidden; }
+  .fill { height: 100%; background: var(--lav); transition: width .4s; }
+  .pct { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--lav); }
+  #foot { font: clamp(10px, 1vw, 14px) var(--mono); color: var(--muted); display: flex; justify-content: space-between;
+    text-transform: uppercase; letter-spacing: .08em; }
+  #foot b { color: var(--lav); font-weight: 500; }
   @media (max-width: 700px) { #views { flex-direction: column; } }
 </style>
 </head>
@@ -49,12 +65,12 @@
     <div class="view"><h2>After</h2><img id="after" src="/after.jpg" alt="after scan"></div>
   </div>
   <div id="items"></div>
-  <div id="foot"><span><b>Intake.ai</b> station · runs on Roboflow Inference</span><span id="meta"></span></div>
+  <div id="foot"><span><b>Intake.ai</b> · kitchen station · runs on Roboflow Inference</span><span id="meta"></span></div>
 <script>
 let lastSeq = -1;
-// server color -> theme [background, text]; idle grey, ready/busy purple, ok green, review amber, error red
-const THEME = {'#475569': ['#3a3644', '#f4f2ec'], '#2563eb': ['#6329b7', '#ffffff'], '#1f9d55': ['#15803d', '#ffffff'],
-  '#d97706': ['#f5a524', '#161026'], '#dc2626': ['#d92d20', '#ffffff']};
+// server color -> theme [background, text]: idle ink, ready/busy lavender, ok mint, review amber, error red
+const THEME = {'#475569': ['#1c1a19', '#f4f2ec'], '#2563eb': ['#c29af6', '#121110'], '#1f9d55': ['#b9f0c8', '#121110'],
+  '#d97706': ['#ffd27a', '#121110'], '#dc2626': ['#ef4444', '#121110']};
 function paint(color) {
   const [bg, fg] = THEME[(color || '').toLowerCase()] || [color, '#f4f2ec'];
   const el = document.getElementById('status');
@@ -88,7 +104,7 @@ async function poll() {
         row.innerHTML = '<span></span><div class="track"><div class="fill"></div></div><span class="pct"></span>';
         row.children[0].textContent = it.name;
         row.querySelector('.fill').style.width = (pct == null ? 100 : pct) + '%';
-        if (pct == null) row.querySelector('.fill').style.background = '#3e216b';
+        if (pct == null) row.querySelector('.fill').style.background = '#4a3a63';
         row.children[2].textContent = pct == null ? '' : pct + '%';
         box.appendChild(row);
       }

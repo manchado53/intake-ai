@@ -1,24 +1,27 @@
-# Intake.ai look: purple accent, warm off-white, small radii (see docs/research/roboflow-ui-style.md)
+# Intake.ai look, after summit.roboflow.com: cream paper, ink type, lavender accent, square corners,
+# mono labels (tokens + sources in docs/research/roboflow-ui-style.md)
 [theme]
 base = "light"
-primaryColor = "#8315F9"
-backgroundColor = "#FCFBF9"
-secondaryBackgroundColor = "#F3EEFF"
-textColor = "#1D1D1F"
-linkColor = "#6706CE"
-borderColor = "#E7E4F0"
-font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+primaryColor = "#121110"
+backgroundColor = "#F4F2EC"
+secondaryBackgroundColor = "#E6E3DC"
+textColor = "#121110"
+linkColor = "#121110"
+borderColor = "#D9D5CC"
+font = "Inter Tight:https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap, sans-serif"
 codeFont = "Geist Mono:https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap, monospace"
-headingFontWeights = [700, 600, 600, 600, 600, 600]
-baseRadius = "8px"
-buttonRadius = "6px"
-violetColor = "#8315F9"
-blueColor = "#6329B7"
+headingFontWeights = [500, 500, 500, 500, 500, 500]
+baseRadius = "0px"
+buttonRadius = "0px"
+violetColor = "#C29AF6"
+blueColor = "#8FD3FF"
 greenColor = "#15803D"
 orangeColor = "#D97706"
-redColor = "#D92D20"
-chartCategoricalColors = ["#8315F9", "#C29AF6", "#6329B7", "#15803D", "#D97706", "#D92D20"]
+redColor = "#EF4444"
+chartCategoricalColors = ["#C29AF6", "#121110", "#8FD3FF", "#FFA6D6", "#8B887F", "#EF4444"]
 
 [theme.sidebar]
-backgroundColor = "#F4F2EC"
-secondaryBackgroundColor = "#ECEAE6"
+backgroundColor = "#121110"
+secondaryBackgroundColor = "#1C1A19"
+textColor = "#F4F2EC"
+borderColor = "#2A2725"

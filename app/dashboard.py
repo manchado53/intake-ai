@@ -18,11 +18,13 @@ from app import alerts, cards, store  # noqa: E402
 
 REFRESH_S = 2
 FEED_LIMIT = 30
-ACCENT, LOW, INK = "#8315F9", "#D92D20", "#1D1D1F"  # match .streamlit/config.toml
+ACCENT, LOW, INK = "#C29AF6", "#EF4444", "#121110"  # match .streamlit/config.toml
 CSS = """<style>
-[data-testid="stMetricLabel"] p { font-family: "Geist Mono", ui-monospace, monospace; text-transform: uppercase;
-  letter-spacing: .06em; font-size: .75rem; }
-[data-testid="stSidebar"] { border-right: 1px solid #E7E4F0; }
+h1, h2, h3 { letter-spacing: -.03em; }
+[data-testid="stMetricLabel"] p, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] label p {
+  font-family: "Geist Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; }
+[data-testid="stMetricValue"] { letter-spacing: -.03em; }
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 { color: #C29AF6; }
 </style>"""
 
 st.set_page_config(page_title="Intake.ai – dietitian view", page_icon="🍽️", layout="wide")
