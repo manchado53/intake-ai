@@ -1,6 +1,6 @@
 """Capture staged meals: raw color + depth + scale grams, one state at a time.
 
-One meal: full plate (s0) -> remove some of ONE food -> s1 -> ... -> s4 -> empty plate.
+One meal: full plate (s0) -> remove some of ONE food -> s1 -> ... -> s9 -> empty plate.
 At each state: weigh the plate, type grams (g), type which food changed (f), take 3 shots
 (space), nudging the plate between shots. Files are raw (never resized or warped), so the
 calibration can be redone later without reshooting.
@@ -28,7 +28,7 @@ from preview import colorize, open_color, open_depth
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CALIB = os.path.join(ROOT, "calib", "depth_to_color.json")
-STATES = ["s0", "s1", "s2", "s3", "s4", "empty"]
+STATES = ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "empty"]
 SHOTS_PER_STATE = 3
 DEPTH_FRAMES = 10   # averaged per shot to cut noise
 W, H = 640, 480     # display size only; files keep native size
