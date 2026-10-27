@@ -4,12 +4,13 @@ Both return one contract-1 dict (docs/contracts.md section 1):
     {"qr": "R01" | None, "estimate": {...}, "annotated_image": <base64 jpeg> | None}
 
 Config comes from env vars, then the repo's .env (the main checkout's .env too, when running
-from a worktree): INFERENCE_URL, WORKFLOW_ID, ROBOFLOW_API_KEY, DASHBOARD_URL, STATION_ID, CAMERA.
+from a worktree): INFERENCE_URL, WORKFLOW_ID, ROBOFLOW_API_KEY, DASHBOARD_URL, STATION_ID, CAMERA, WORKFLOW_SPEC (inline spec path).
 """
 import base64
 import json
 import os
 import re
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -28,7 +29,7 @@ def load_config():
     for path in (os.path.join(MAIN_ROOT, ".env"), os.path.join(ROOT, ".env")):
         if os.path.exists(path):
             cfg.update({k: v for k, v in dotenv_values(path).items() if v})
-    cfg.update({k: os.environ[k] for k in list(DEFAULTS) + ["ROBOFLOW_API_KEY"] if os.environ.get(k)})
+    cfg.update({k: os.environ[k] for k in list(DEFAULTS) + ["ROBOFLOW_API_KEY", "WORKFLOW_SPEC"] if os.environ.get(k)})
     return cfg
 
 
@@ -62,8 +63,12 @@ class WorkflowClient:
         self.client = InferenceHTTPClient(api_url=cfg["INFERENCE_URL"], api_key=cfg.get("ROBOFLOW_API_KEY"))
 
     def run(self, frame, menu, hint=None):
-        out = self.client.run_workflow(workspace_name=WORKSPACE, workflow_id=self.cfg["WORKFLOW_ID"],
-                                       images={"image": frame}, parameters={"menu": menu})
+        # WORKFLOW_SPEC = path to a spec JSON: sent inline, so no fetch from Roboflow (offline-safe)
+        spec_path = self.cfg.get("WORKFLOW_SPEC")
+        where = ({"specification": json.loads(Path(spec_path).read_text(encoding="utf-8"))} if spec_path
+                 else {"workflow_id": self.cfg["WORKFLOW_ID"]})
+        out = self.client.run_workflow(workspace_name=WORKSPACE, images={"image": frame},
+                                       parameters={"menu": menu}, **where)
         return normalize(out[0])
 
 

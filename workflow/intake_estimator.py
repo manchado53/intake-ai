@@ -17,15 +17,23 @@ CLIP_LOGIT_SCALE = 100.0  # CLIP's own logit scale; turns raw cosine sims into a
 CLIP_MAX_PROMPTS = 8
 
 
-def clip_pick(similarities, menu):
-    """Raw CLIP cosine similarities (one per menu word) -> (best name, softmax prob of it)."""
+def clip_probs(similarities, menu):
+    """Raw CLIP cosine similarities (one per menu word) -> softmax prob per menu word."""
     sims = np.asarray(similarities, dtype=float)
     if sims.size == 0 or not menu:
-        return "unknown", 0.0
+        return {}
     z = CLIP_LOGIT_SCALE * (sims - sims.max())
     p = np.exp(z) / np.exp(z).sum()
-    i = int(np.argmax(p))
-    return str(menu[i]), float(p[i])
+    return {str(m): float(v) for m, v in zip(menu, p)}
+
+
+def clip_pick(similarities, menu):
+    """Raw CLIP cosine similarities (one per menu word) -> (best name, softmax prob of it)."""
+    probs = clip_probs(similarities, menu)
+    if not probs:
+        return "unknown", 0.0
+    name = max(probs, key=probs.get)
+    return name, probs[name]
 
 
 def estimate(plate_masks, foods):
@@ -53,6 +61,8 @@ def estimate(plate_masks, foods):
             "det_conf": round(float(f["det_conf"]), 4),
             "area_frac": round(px / plate_px, 4) if plate_found else 0.0,
             "centroid": centroid,
+            # per-menu-word probs: lets the station pick among one resident's items
+            "scores": {k: round(float(v), 4) for k, v in (f.get("scores") or {}).items()},
         })
 
     reasons = []
@@ -132,7 +142,8 @@ def run(self, image, predictions, foods, sims_head, sims_tail, menu):
     food_list = []
     for i in range(len(foods)):
         sims = join_sims(sh[i] if i < len(sh) else [], st[i] if i < len(st) else [], len(menu))
+        probs = clip_probs(sims, menu[:len(sims)])
         name, score = clip_pick(sims, menu[:len(sims)])
         food_list.append({"mask": foods.mask[i], "name": name, "clip_score": score,
-                          "det_conf": float(foods.confidence[i])})
+                          "det_conf": float(foods.confidence[i]), "scores": probs})
     return {"estimate": estimate(plate_masks, food_list), "qr": read_qr(image.numpy_image)}

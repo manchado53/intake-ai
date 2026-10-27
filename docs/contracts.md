@@ -39,6 +39,8 @@ Percentages are 0-100 floats. Times are ISO 8601 local time. Meals: `breakfast |
 - `items`: one entry per **food blob**. Several blobs can share a name (two fish pieces); the station
   sums them per name. `name` is the best menu word from CLIP among `menu`. `centroid` is
   normalized to the image (x, y in 0..1).
+- Each item also has `scores`: {menu word: softmax prob over the menu}. The station uses it to pick
+  the best word among *this resident's* items when CLIP's overall top word is not on their list.
 - `needs_review` is true if any of: no plate, a blob with `det_conf < 0.5`, a blob with
   `clip_score < 0.5`. `review_reasons` lists short codes: `no_plate`, `low_det_conf`, `low_clip`.
 - Inputs: `image`, `menu` (list of strings: every menu word served today), `confidence` (default 0.5).
