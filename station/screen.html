@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intake.ai station</title>
+<style>
+  :root { --bg: #0b1220; --fg: #f8fafc; --muted: #94a3b8; --panel: #111a2e; --bar: #1e293b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; padding: 1.2vh 1.5vw; gap: 1.2vh; }
+  #status { border-radius: 14px; padding: 2vh 2vw; background: #475569; transition: background .2s; }
+  #text { font-size: clamp(28px, 6.2vw, 96px); font-weight: 800; line-height: 1.05; }
+  #sub { font-size: clamp(16px, 2.6vw, 40px); margin-top: .6vh; opacity: .95; min-height: 1.2em; }
+  #views { display: flex; gap: 1.5vw; flex: 1; min-height: 0; }
+  .view { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--panel);
+    border-radius: 12px; padding: 1vh 1vw; }
+  .view h2 { margin: 0 0 .6vh; font-size: clamp(12px, 1.6vw, 22px); color: var(--muted); font-weight: 600; }
+  .view img { width: 100%; flex: 1; min-height: 0; object-fit: contain; }
+  #items { display: grid; gap: 1vh; }
+  .item { display: grid; grid-template-columns: minmax(8em, 22%) 1fr 4.5em; align-items: center; gap: 1vw;
+    font-size: clamp(16px, 2.6vw, 40px); font-weight: 700; }
+  .track { height: 1.1em; background: var(--bar); border-radius: 8px; overflow: hidden; }
+  .fill { height: 100%; background: #22c55e; transition: width .4s; }
+  .pct { text-align: right; }
+  #foot { font-size: clamp(11px, 1.2vw, 16px); color: var(--muted); display: flex; justify-content: space-between; }
+  @media (max-width: 700px) { #views { flex-direction: column; } }
+</style>
+</head>
+<body>
+  <div id="status"><div id="text">Starting…</div><div id="sub"></div></div>
+  <div id="views">
+    <div class="view"><h2>Camera</h2><img id="live" src="/video" alt="live camera"></div>
+    <div class="view"><h2>Last scan</h2><img id="ann" src="/annotated.jpg" alt="last annotated scan"></div>
+  </div>
+  <div id="items"></div>
+  <div id="foot"><span>Intake.ai station</span><span id="meta"></span></div>
+<script>
+let lastSeq = -1;
+async function poll() {
+  try {
+    const s = await (await fetch('/state', {cache: 'no-store'})).json();
+    document.getElementById('status').style.background = s.color;
+    document.getElementById('text').textContent = s.text;
+    document.getElementById('sub').textContent = s.sub || '';
+    document.getElementById('meta').textContent =
+      (s.outbox_pending ? s.outbox_pending + ' waiting to send · ' : 'all sent · ') + s.time;
+    if (s.seq !== lastSeq) {
+      lastSeq = s.seq;
+      const box = document.getElementById('items');
+      box.innerHTML = '';
+      for (const it of s.items || []) {
+        const row = document.createElement('div');
+        row.className = 'item';
+        const pct = it.pct == null ? null : Math.round(it.pct);
+        row.innerHTML = '<span></span><div class="track"><div class="fill"></div></div><span class="pct"></span>';
+        row.children[0].textContent = it.name;
+        row.querySelector('.fill').style.width = (pct == null ? 100 : pct) + '%';
+        if (pct == null) row.querySelector('.fill').style.background = '#334155';
+        row.children[2].textContent = pct == null ? '' : pct + '%';
+        box.appendChild(row);
+      }
+      if (['before', 'after', 'error'].includes(s.kind))
+        document.getElementById('ann').src = '/annotated.jpg?t=' + Date.now();
+    }
+  } catch (e) {
+    document.getElementById('text').textContent = 'Station offline';
+    document.getElementById('status').style.background = '#7f1d1d';
+  }
+}
+poll();
+setInterval(poll, 500);
+</script>
+</body>
+</html>
