@@ -48,3 +48,12 @@ def test_outbox_retries_and_dedupes(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod.requests, "post", up)
     assert s.flush("http://x/api/scan") == 2
     assert s.pending() == [] and len(got) == 2
+
+
+def test_reset_forgets_scans_and_outbox(tmp_path):
+    s = Store(str(tmp_path / "s.db"))
+    s.save_scan(body("2026-10-28T12:00:00-R01"), "2026-10-28", {"pasta": 0.2})
+    s.enqueue(body("2026-10-28T12:00:00-R01"))
+    assert s.reset() == 1
+    assert s.open_before("R01", "lunch", "2026-10-28") is None
+    assert s.pending() == []

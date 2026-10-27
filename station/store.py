@@ -61,6 +61,13 @@ class Store:
                              (resident_id, meal, date)).fetchone()
         return json.loads(row["fracs"]) if row else None
 
+    def reset(self):
+        """Forget every scan and unsent result (fresh start before a demo). Returns scans dropped."""
+        with self.lock, self._db() as db:
+            n = db.execute("DELETE FROM scans").rowcount
+            db.execute("DELETE FROM outbox")
+        return n
+
     # --- outbox --------------------------------------------------------------
     def enqueue(self, body):
         with self.lock, self._db() as db:

@@ -115,6 +115,8 @@ class Scanner:
             if before is None:
                 body["items"] = before_items(fracs)
                 if not body["items"]:
+                    # not "ok": an empty BEFORE must not open the meal (the AFTER would have nothing to compare)
+                    body["status"] = "error"
                     body["needs_review"] = True
                     body["review_reasons"].append("no_food")
             else:
@@ -140,6 +142,8 @@ class Scanner:
             return s.set("error", f"Unknown card {b['resident_id']}", RED, "Check the resident's card")
         if st == "no_plate":
             return s.set("error", "Center the plate", RED, "Plate not found")
+        if st == "error" and "no_food" in b["review_reasons"]:
+            return s.set("error", "No food seen – try again", RED, "Center the full plate under the camera")
         if st == "error":
             why = "No meal planned now" if "no_meal_plan" in b["review_reasons"] else "Try again"
             return s.set("error", "Error – " + why, RED, ", ".join(b["review_reasons"]))
@@ -150,7 +154,10 @@ class Scanner:
             items = [{"name": i["name"], "pct": None} for i in b["items"]]
             return s.set("before", f"{who} – BEFORE saved ✓", color, review, items)
         items = [{"name": i["name"], "pct": i["pct_eaten"]} for i in b["items"]]
-        sub = " · ".join(x for x in (who, f"{b['kcal']:.0f} kcal, {b['protein_g']:.0f} g protein", review) if x)
+        nutr = f"{b['kcal']:.0f} kcal, {b['protein_g']:.0f} g protein" if b["kcal"] is not None else ""
+        sub = " · ".join(x for x in (who, nutr, review) if x)
+        if b["chart_bin"] is None:
+            return s.set("after", "AFTER: no change measured", AMBER, sub, items)
         return s.set("after", f"AFTER: ate {b['chart_bin']}% ✓", color, sub, items)
 
 
@@ -290,12 +297,15 @@ def main():
     ap.add_argument("--pause", type=float, default=3.0, help="folder mode: seconds between images")
     ap.add_argument("--exit-when-done", action="store_true", help="folder/video: quit after the last frame")
     ap.add_argument("--no-photo", action="store_true", help="don't send the annotated photo to the dashboard")
+    ap.add_argument("--reset", action="store_true", help="forget all saved scans + unsent results first")
     args = ap.parse_args()
 
     with open(args.profiles, encoding="utf-8") as fh:
         profiles = json.load(fh)
     screen = Screen()
     store = Store(args.db)
+    if args.reset:
+        print(f"reset: dropped {store.reset()} saved scans")
     scan_url = cfg["DASHBOARD_URL"].rstrip("/") + "/api/scan"
     store.start_outbox(scan_url)
     client = make_client(cfg, fake=args.fake_workflow)
