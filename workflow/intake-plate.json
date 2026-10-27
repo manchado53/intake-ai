@@ -1,0 +1,363 @@
+{
+  "version": "1.0",
+  "inputs": [
+    {
+      "type": "WorkflowImage",
+      "name": "image"
+    },
+    {
+      "type": "WorkflowParameter",
+      "name": "menu",
+      "kind": [
+        "list_of_values"
+      ],
+      "default_value": [
+        "white fish",
+        "pasta",
+        "carrots",
+        "pork chop",
+        "rice",
+        "green beans",
+        "chicken",
+        "mashed potatoes",
+        "mixed vegetables"
+      ]
+    },
+    {
+      "type": "WorkflowParameter",
+      "name": "confidence",
+      "kind": [
+        "float_zero_to_one"
+      ],
+      "default_value": 0.5
+    }
+  ],
+  "dynamic_blocks_definitions": [
+    {
+      "type": "DynamicBlockDefinition",
+      "manifest": {
+        "type": "ManifestDescription",
+        "block_type": "MenuSplit",
+        "description": "Split the menu into two prompt lists of <= 8 (hosted CLIP limit).",
+        "inputs": {
+          "menu": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "input_parameter"
+            ],
+            "value_types": [
+              "list"
+            ]
+          }
+        },
+        "outputs": {
+          "head": {
+            "type": "DynamicOutputDefinition",
+            "kind": [
+              "list_of_values"
+            ]
+          },
+          "tail": {
+            "type": "DynamicOutputDefinition",
+            "kind": [
+              "list_of_values"
+            ]
+          }
+        }
+      },
+      "code": {
+        "type": "PythonCode",
+        "run_function_code": "\"\"\"Intake estimator: food masks + plate mask -> the `estimate` dict of docs/contracts.md (section 1).\n\nNo network. `workflow/build_spec.py` pastes this whole file into the Workflow's three Custom Python\nblocks (`split_menu` = MenuSplit, `crop_name` = CropName, `run` = IntakeEstimator), so keep it self-contained\n(numpy + cv2 only, both preloaded in Roboflow's Custom Python sandbox).\n\nTest: .venv-app/Scripts/python -m pytest tests/test_workflow_estimator.py\n\"\"\"\nimport cv2\nimport numpy as np\n\nDET_CONF_MIN = 0.5\nCLIP_SCORE_MIN = 0.5\nCLIP_LOGIT_SCALE = 100.0  # CLIP's own logit scale; turns raw cosine sims into a softmax over the menu\n# Hosted CLIP compare returns 500 for more than 8 prompts (measured 2026-10-27), so the menu goes\n# to CLIP in two chunks of <= 8; menus up to 16 words are supported.\nCLIP_MAX_PROMPTS = 8\n\n\ndef clip_pick(similarities, menu):\n    \"\"\"Raw CLIP cosine similarities (one per menu word) -> (best name, softmax prob of it).\"\"\"\n    sims = np.asarray(similarities, dtype=float)\n    if sims.size == 0 or not menu:\n        return \"unknown\", 0.0\n    z = CLIP_LOGIT_SCALE * (sims - sims.max())\n    p = np.exp(z) / np.exp(z).sum()\n    i = int(np.argmax(p))\n    return str(menu[i]), float(p[i])\n\n\ndef estimate(plate_masks, foods):\n    \"\"\"plate_masks: list of HxW bool arrays (largest one is used).\n    foods: list of dicts {\"mask\": HxW bool, \"name\": str, \"clip_score\": float, \"det_conf\": float}.\n    Returns the contract `estimate` dict.\"\"\"\n    plates = [np.asarray(m, dtype=bool) for m in plate_masks]\n    plate = max(plates, key=lambda m: int(m.sum())) if plates else None\n    plate_px = int(plate.sum()) if plate is not None else 0\n    plate_found = plate_px > 0\n\n    items = []\n    for f in foods:\n        mask = np.asarray(f[\"mask\"], dtype=bool)\n        h, w = mask.shape\n        px = int(mask.sum())\n        if px:\n            ys, xs = np.nonzero(mask)\n            centroid = [round(float(xs.mean()) / w, 4), round(float(ys.mean()) / h, 4)]\n        else:\n            centroid = [None, None]\n        items.append({\n            \"name\": str(f[\"name\"]),\n            \"clip_score\": round(float(f[\"clip_score\"]), 4),\n            \"det_conf\": round(float(f[\"det_conf\"]), 4),\n            \"area_frac\": round(px / plate_px, 4) if plate_found else 0.0,\n            \"centroid\": centroid,\n        })\n\n    reasons = []\n    if not plate_found:\n        reasons.append(\"no_plate\")\n    if any(it[\"det_conf\"] < DET_CONF_MIN for it in items):\n        reasons.append(\"low_det_conf\")\n    if any(it[\"clip_score\"] < CLIP_SCORE_MIN for it in items):\n        reasons.append(\"low_clip\")\n\n    return {\n        \"plate_found\": plate_found,\n        \"plate_area_px\": plate_px,\n        \"food_frac_total\": round(sum(it[\"area_frac\"] for it in items), 4),\n        \"needs_review\": bool(reasons),\n        \"review_reasons\": reasons,\n        \"items\": items,\n    }\n\n\ndef read_qr(bgr):\n    \"\"\"Decoded text of the QR card in a BGR image, or None.\n    Single-code detector first: the multi-code one (used by roboflow_core/qr_code_detector@v1)\n    misses clean cards and the block crashes on images without a code.\"\"\"\n    det = cv2.QRCodeDetector()\n    try:\n        text, _, _ = det.detectAndDecode(bgr)\n        if text:\n            return str(text)\n        ok, texts, _, _ = det.detectAndDecodeMulti(bgr)\n        if ok and texts:\n            return next((str(t) for t in texts if t), None)\n    except cv2.error:\n        pass\n    return None\n\n\ndef menu_chunks(menu):\n    \"\"\"Menu -> (head, tail) prompt lists for the two CLIP steps; tail is never empty\n    (CLIP rejects an empty class list), its sims are dropped when the menu fits in head.\"\"\"\n    menu = [str(m) for m in menu]\n    head = menu[:CLIP_MAX_PROMPTS]\n    tail = menu[CLIP_MAX_PROMPTS:2 * CLIP_MAX_PROMPTS] or menu[:1]\n    return head, tail\n\n\ndef join_sims(head_sims, tail_sims, n_menu):\n    sims = list(head_sims)\n    if n_menu > CLIP_MAX_PROMPTS:\n        sims += list(tail_sims)\n    return sims[:n_menu]\n\n\ndef split_menu(self, menu):\n    \"\"\"Custom Python block MenuSplit.\"\"\"\n    head, tail = menu_chunks(menu)\n    return {\"head\": head, \"tail\": tail}\n\n\ndef crop_name(self, sims_head, sims_tail, menu):\n    \"\"\"Custom Python block CropName: one crop's CLIP sims -> menu name (feeds the label block).\"\"\"\n    menu = [str(m) for m in menu]\n    sims = join_sims(sims_head or [], sims_tail or [], len(menu))\n    return {\"name\": clip_pick(sims, menu[:len(sims)])[0]}\n\n\ndef run(self, image, predictions, foods, sims_head, sims_tail, menu):\n    \"\"\"Custom Python block IntakeEstimator.\n    predictions: seg model sv.Detections (plate + food-item); foods: the food-item subset, in the\n    same order as the CLIP crops; sims_head / sims_tail: per-crop raw CLIP sims vs menu_chunks().\"\"\"\n    menu = [str(m) for m in menu]\n    names = predictions.data.get(\"class_name\", [])\n    plate_masks = [predictions.mask[i] for i in range(len(predictions))\n                   if names[i] == \"plate\" and predictions.mask is not None]\n    sh = list(sims_head) if sims_head is not None else []\n    st = list(sims_tail) if sims_tail is not None else []\n    food_list = []\n    for i in range(len(foods)):\n        sims = join_sims(sh[i] if i < len(sh) else [], st[i] if i < len(st) else [], len(menu))\n        name, score = clip_pick(sims, menu[:len(sims)])\n        food_list.append({\"mask\": foods.mask[i], \"name\": name, \"clip_score\": score,\n                          \"det_conf\": float(foods.confidence[i])})\n    return {\"estimate\": estimate(plate_masks, food_list), \"qr\": read_qr(image.numpy_image)}\n",
+        "run_function_name": "split_menu"
+      }
+    },
+    {
+      "type": "DynamicBlockDefinition",
+      "manifest": {
+        "type": "ManifestDescription",
+        "block_type": "CropName",
+        "description": "One food crop: CLIP sims -> best menu name (label for the visualization).",
+        "inputs": {
+          "sims_head": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "step_output"
+            ]
+          },
+          "sims_tail": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "step_output"
+            ]
+          },
+          "menu": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "input_parameter"
+            ],
+            "value_types": [
+              "list"
+            ]
+          }
+        },
+        "outputs": {
+          "name": {
+            "type": "DynamicOutputDefinition",
+            "kind": [
+              "string"
+            ]
+          }
+        }
+      },
+      "code": {
+        "type": "PythonCode",
+        "run_function_code": "\"\"\"Intake estimator: food masks + plate mask -> the `estimate` dict of docs/contracts.md (section 1).\n\nNo network. `workflow/build_spec.py` pastes this whole file into the Workflow's three Custom Python\nblocks (`split_menu` = MenuSplit, `crop_name` = CropName, `run` = IntakeEstimator), so keep it self-contained\n(numpy + cv2 only, both preloaded in Roboflow's Custom Python sandbox).\n\nTest: .venv-app/Scripts/python -m pytest tests/test_workflow_estimator.py\n\"\"\"\nimport cv2\nimport numpy as np\n\nDET_CONF_MIN = 0.5\nCLIP_SCORE_MIN = 0.5\nCLIP_LOGIT_SCALE = 100.0  # CLIP's own logit scale; turns raw cosine sims into a softmax over the menu\n# Hosted CLIP compare returns 500 for more than 8 prompts (measured 2026-10-27), so the menu goes\n# to CLIP in two chunks of <= 8; menus up to 16 words are supported.\nCLIP_MAX_PROMPTS = 8\n\n\ndef clip_pick(similarities, menu):\n    \"\"\"Raw CLIP cosine similarities (one per menu word) -> (best name, softmax prob of it).\"\"\"\n    sims = np.asarray(similarities, dtype=float)\n    if sims.size == 0 or not menu:\n        return \"unknown\", 0.0\n    z = CLIP_LOGIT_SCALE * (sims - sims.max())\n    p = np.exp(z) / np.exp(z).sum()\n    i = int(np.argmax(p))\n    return str(menu[i]), float(p[i])\n\n\ndef estimate(plate_masks, foods):\n    \"\"\"plate_masks: list of HxW bool arrays (largest one is used).\n    foods: list of dicts {\"mask\": HxW bool, \"name\": str, \"clip_score\": float, \"det_conf\": float}.\n    Returns the contract `estimate` dict.\"\"\"\n    plates = [np.asarray(m, dtype=bool) for m in plate_masks]\n    plate = max(plates, key=lambda m: int(m.sum())) if plates else None\n    plate_px = int(plate.sum()) if plate is not None else 0\n    plate_found = plate_px > 0\n\n    items = []\n    for f in foods:\n        mask = np.asarray(f[\"mask\"], dtype=bool)\n        h, w = mask.shape\n        px = int(mask.sum())\n        if px:\n            ys, xs = np.nonzero(mask)\n            centroid = [round(float(xs.mean()) / w, 4), round(float(ys.mean()) / h, 4)]\n        else:\n            centroid = [None, None]\n        items.append({\n            \"name\": str(f[\"name\"]),\n            \"clip_score\": round(float(f[\"clip_score\"]), 4),\n            \"det_conf\": round(float(f[\"det_conf\"]), 4),\n            \"area_frac\": round(px / plate_px, 4) if plate_found else 0.0,\n            \"centroid\": centroid,\n        })\n\n    reasons = []\n    if not plate_found:\n        reasons.append(\"no_plate\")\n    if any(it[\"det_conf\"] < DET_CONF_MIN for it in items):\n        reasons.append(\"low_det_conf\")\n    if any(it[\"clip_score\"] < CLIP_SCORE_MIN for it in items):\n        reasons.append(\"low_clip\")\n\n    return {\n        \"plate_found\": plate_found,\n        \"plate_area_px\": plate_px,\n        \"food_frac_total\": round(sum(it[\"area_frac\"] for it in items), 4),\n        \"needs_review\": bool(reasons),\n        \"review_reasons\": reasons,\n        \"items\": items,\n    }\n\n\ndef read_qr(bgr):\n    \"\"\"Decoded text of the QR card in a BGR image, or None.\n    Single-code detector first: the multi-code one (used by roboflow_core/qr_code_detector@v1)\n    misses clean cards and the block crashes on images without a code.\"\"\"\n    det = cv2.QRCodeDetector()\n    try:\n        text, _, _ = det.detectAndDecode(bgr)\n        if text:\n            return str(text)\n        ok, texts, _, _ = det.detectAndDecodeMulti(bgr)\n        if ok and texts:\n            return next((str(t) for t in texts if t), None)\n    except cv2.error:\n        pass\n    return None\n\n\ndef menu_chunks(menu):\n    \"\"\"Menu -> (head, tail) prompt lists for the two CLIP steps; tail is never empty\n    (CLIP rejects an empty class list), its sims are dropped when the menu fits in head.\"\"\"\n    menu = [str(m) for m in menu]\n    head = menu[:CLIP_MAX_PROMPTS]\n    tail = menu[CLIP_MAX_PROMPTS:2 * CLIP_MAX_PROMPTS] or menu[:1]\n    return head, tail\n\n\ndef join_sims(head_sims, tail_sims, n_menu):\n    sims = list(head_sims)\n    if n_menu > CLIP_MAX_PROMPTS:\n        sims += list(tail_sims)\n    return sims[:n_menu]\n\n\ndef split_menu(self, menu):\n    \"\"\"Custom Python block MenuSplit.\"\"\"\n    head, tail = menu_chunks(menu)\n    return {\"head\": head, \"tail\": tail}\n\n\ndef crop_name(self, sims_head, sims_tail, menu):\n    \"\"\"Custom Python block CropName: one crop's CLIP sims -> menu name (feeds the label block).\"\"\"\n    menu = [str(m) for m in menu]\n    sims = join_sims(sims_head or [], sims_tail or [], len(menu))\n    return {\"name\": clip_pick(sims, menu[:len(sims)])[0]}\n\n\ndef run(self, image, predictions, foods, sims_head, sims_tail, menu):\n    \"\"\"Custom Python block IntakeEstimator.\n    predictions: seg model sv.Detections (plate + food-item); foods: the food-item subset, in the\n    same order as the CLIP crops; sims_head / sims_tail: per-crop raw CLIP sims vs menu_chunks().\"\"\"\n    menu = [str(m) for m in menu]\n    names = predictions.data.get(\"class_name\", [])\n    plate_masks = [predictions.mask[i] for i in range(len(predictions))\n                   if names[i] == \"plate\" and predictions.mask is not None]\n    sh = list(sims_head) if sims_head is not None else []\n    st = list(sims_tail) if sims_tail is not None else []\n    food_list = []\n    for i in range(len(foods)):\n        sims = join_sims(sh[i] if i < len(sh) else [], st[i] if i < len(st) else [], len(menu))\n        name, score = clip_pick(sims, menu[:len(sims)])\n        food_list.append({\"mask\": foods.mask[i], \"name\": name, \"clip_score\": score,\n                          \"det_conf\": float(foods.confidence[i])})\n    return {\"estimate\": estimate(plate_masks, food_list), \"qr\": read_qr(image.numpy_image)}\n",
+        "run_function_name": "crop_name"
+      }
+    },
+    {
+      "type": "DynamicBlockDefinition",
+      "manifest": {
+        "type": "ManifestDescription",
+        "block_type": "IntakeEstimator",
+        "description": "Food area / plate area per food blob, CLIP name per blob, review flags, QR text.",
+        "inputs": {
+          "image": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "input_image"
+            ]
+          },
+          "predictions": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "step_output"
+            ],
+            "is_dimensionality_reference": true
+          },
+          "foods": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "step_output"
+            ]
+          },
+          "sims_head": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "step_output"
+            ],
+            "dimensionality_offset": 1
+          },
+          "sims_tail": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "step_output"
+            ],
+            "dimensionality_offset": 1
+          },
+          "menu": {
+            "type": "DynamicInputDefinition",
+            "selector_types": [
+              "input_parameter"
+            ],
+            "value_types": [
+              "list"
+            ]
+          }
+        },
+        "outputs": {
+          "estimate": {
+            "type": "DynamicOutputDefinition",
+            "kind": [
+              "dictionary"
+            ]
+          },
+          "qr": {
+            "type": "DynamicOutputDefinition",
+            "kind": [
+              "*"
+            ]
+          }
+        },
+        "accepts_empty_values": true
+      },
+      "code": {
+        "type": "PythonCode",
+        "run_function_code": "\"\"\"Intake estimator: food masks + plate mask -> the `estimate` dict of docs/contracts.md (section 1).\n\nNo network. `workflow/build_spec.py` pastes this whole file into the Workflow's three Custom Python\nblocks (`split_menu` = MenuSplit, `crop_name` = CropName, `run` = IntakeEstimator), so keep it self-contained\n(numpy + cv2 only, both preloaded in Roboflow's Custom Python sandbox).\n\nTest: .venv-app/Scripts/python -m pytest tests/test_workflow_estimator.py\n\"\"\"\nimport cv2\nimport numpy as np\n\nDET_CONF_MIN = 0.5\nCLIP_SCORE_MIN = 0.5\nCLIP_LOGIT_SCALE = 100.0  # CLIP's own logit scale; turns raw cosine sims into a softmax over the menu\n# Hosted CLIP compare returns 500 for more than 8 prompts (measured 2026-10-27), so the menu goes\n# to CLIP in two chunks of <= 8; menus up to 16 words are supported.\nCLIP_MAX_PROMPTS = 8\n\n\ndef clip_pick(similarities, menu):\n    \"\"\"Raw CLIP cosine similarities (one per menu word) -> (best name, softmax prob of it).\"\"\"\n    sims = np.asarray(similarities, dtype=float)\n    if sims.size == 0 or not menu:\n        return \"unknown\", 0.0\n    z = CLIP_LOGIT_SCALE * (sims - sims.max())\n    p = np.exp(z) / np.exp(z).sum()\n    i = int(np.argmax(p))\n    return str(menu[i]), float(p[i])\n\n\ndef estimate(plate_masks, foods):\n    \"\"\"plate_masks: list of HxW bool arrays (largest one is used).\n    foods: list of dicts {\"mask\": HxW bool, \"name\": str, \"clip_score\": float, \"det_conf\": float}.\n    Returns the contract `estimate` dict.\"\"\"\n    plates = [np.asarray(m, dtype=bool) for m in plate_masks]\n    plate = max(plates, key=lambda m: int(m.sum())) if plates else None\n    plate_px = int(plate.sum()) if plate is not None else 0\n    plate_found = plate_px > 0\n\n    items = []\n    for f in foods:\n        mask = np.asarray(f[\"mask\"], dtype=bool)\n        h, w = mask.shape\n        px = int(mask.sum())\n        if px:\n            ys, xs = np.nonzero(mask)\n            centroid = [round(float(xs.mean()) / w, 4), round(float(ys.mean()) / h, 4)]\n        else:\n            centroid = [None, None]\n        items.append({\n            \"name\": str(f[\"name\"]),\n            \"clip_score\": round(float(f[\"clip_score\"]), 4),\n            \"det_conf\": round(float(f[\"det_conf\"]), 4),\n            \"area_frac\": round(px / plate_px, 4) if plate_found else 0.0,\n            \"centroid\": centroid,\n        })\n\n    reasons = []\n    if not plate_found:\n        reasons.append(\"no_plate\")\n    if any(it[\"det_conf\"] < DET_CONF_MIN for it in items):\n        reasons.append(\"low_det_conf\")\n    if any(it[\"clip_score\"] < CLIP_SCORE_MIN for it in items):\n        reasons.append(\"low_clip\")\n\n    return {\n        \"plate_found\": plate_found,\n        \"plate_area_px\": plate_px,\n        \"food_frac_total\": round(sum(it[\"area_frac\"] for it in items), 4),\n        \"needs_review\": bool(reasons),\n        \"review_reasons\": reasons,\n        \"items\": items,\n    }\n\n\ndef read_qr(bgr):\n    \"\"\"Decoded text of the QR card in a BGR image, or None.\n    Single-code detector first: the multi-code one (used by roboflow_core/qr_code_detector@v1)\n    misses clean cards and the block crashes on images without a code.\"\"\"\n    det = cv2.QRCodeDetector()\n    try:\n        text, _, _ = det.detectAndDecode(bgr)\n        if text:\n            return str(text)\n        ok, texts, _, _ = det.detectAndDecodeMulti(bgr)\n        if ok and texts:\n            return next((str(t) for t in texts if t), None)\n    except cv2.error:\n        pass\n    return None\n\n\ndef menu_chunks(menu):\n    \"\"\"Menu -> (head, tail) prompt lists for the two CLIP steps; tail is never empty\n    (CLIP rejects an empty class list), its sims are dropped when the menu fits in head.\"\"\"\n    menu = [str(m) for m in menu]\n    head = menu[:CLIP_MAX_PROMPTS]\n    tail = menu[CLIP_MAX_PROMPTS:2 * CLIP_MAX_PROMPTS] or menu[:1]\n    return head, tail\n\n\ndef join_sims(head_sims, tail_sims, n_menu):\n    sims = list(head_sims)\n    if n_menu > CLIP_MAX_PROMPTS:\n        sims += list(tail_sims)\n    return sims[:n_menu]\n\n\ndef split_menu(self, menu):\n    \"\"\"Custom Python block MenuSplit.\"\"\"\n    head, tail = menu_chunks(menu)\n    return {\"head\": head, \"tail\": tail}\n\n\ndef crop_name(self, sims_head, sims_tail, menu):\n    \"\"\"Custom Python block CropName: one crop's CLIP sims -> menu name (feeds the label block).\"\"\"\n    menu = [str(m) for m in menu]\n    sims = join_sims(sims_head or [], sims_tail or [], len(menu))\n    return {\"name\": clip_pick(sims, menu[:len(sims)])[0]}\n\n\ndef run(self, image, predictions, foods, sims_head, sims_tail, menu):\n    \"\"\"Custom Python block IntakeEstimator.\n    predictions: seg model sv.Detections (plate + food-item); foods: the food-item subset, in the\n    same order as the CLIP crops; sims_head / sims_tail: per-crop raw CLIP sims vs menu_chunks().\"\"\"\n    menu = [str(m) for m in menu]\n    names = predictions.data.get(\"class_name\", [])\n    plate_masks = [predictions.mask[i] for i in range(len(predictions))\n                   if names[i] == \"plate\" and predictions.mask is not None]\n    sh = list(sims_head) if sims_head is not None else []\n    st = list(sims_tail) if sims_tail is not None else []\n    food_list = []\n    for i in range(len(foods)):\n        sims = join_sims(sh[i] if i < len(sh) else [], st[i] if i < len(st) else [], len(menu))\n        name, score = clip_pick(sims, menu[:len(sims)])\n        food_list.append({\"mask\": foods.mask[i], \"name\": name, \"clip_score\": score,\n                          \"det_conf\": float(foods.confidence[i])})\n    return {\"estimate\": estimate(plate_masks, food_list), \"qr\": read_qr(image.numpy_image)}\n",
+        "run_function_name": "run"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "type": "roboflow_core/roboflow_instance_segmentation_model@v2",
+      "name": "seg",
+      "images": "$inputs.image",
+      "model_id": "manchado53/intake-ai-food-seg-2-rfdetr-seg-small-t1",
+      "confidence": "$inputs.confidence"
+    },
+    {
+      "type": "roboflow_core/detections_filter@v1",
+      "name": "foods",
+      "predictions": "$steps.seg.predictions",
+      "operations": [
+        {
+          "type": "DetectionsFilter",
+          "filter_operation": {
+            "type": "StatementGroup",
+            "operator": "and",
+            "statements": [
+              {
+                "type": "BinaryStatement",
+                "left_operand": {
+                  "type": "DynamicOperand",
+                  "operand_name": "_",
+                  "operations": [
+                    {
+                      "type": "ExtractDetectionProperty",
+                      "property_name": "class_name"
+                    }
+                  ]
+                },
+                "comparator": {
+                  "type": "=="
+                },
+                "right_operand": {
+                  "type": "StaticOperand",
+                  "value": "food-item"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "roboflow_core/detections_filter@v1",
+      "name": "plates",
+      "predictions": "$steps.seg.predictions",
+      "operations": [
+        {
+          "type": "DetectionsFilter",
+          "filter_operation": {
+            "type": "StatementGroup",
+            "operator": "and",
+            "statements": [
+              {
+                "type": "BinaryStatement",
+                "left_operand": {
+                  "type": "DynamicOperand",
+                  "operand_name": "_",
+                  "operations": [
+                    {
+                      "type": "ExtractDetectionProperty",
+                      "property_name": "class_name"
+                    }
+                  ]
+                },
+                "comparator": {
+                  "type": "=="
+                },
+                "right_operand": {
+                  "type": "StaticOperand",
+                  "value": "plate"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "roboflow_core/dynamic_crop@v1",
+      "name": "crops",
+      "images": "$inputs.image",
+      "predictions": "$steps.foods.predictions"
+    },
+    {
+      "type": "MenuSplit",
+      "name": "menu_split",
+      "menu": "$inputs.menu"
+    },
+    {
+      "type": "roboflow_core/clip_comparison@v2",
+      "name": "clip_head",
+      "images": "$steps.crops.crops",
+      "classes": "$steps.menu_split.head",
+      "version": "ViT-B-16"
+    },
+    {
+      "type": "roboflow_core/clip_comparison@v2",
+      "name": "clip_tail",
+      "images": "$steps.crops.crops",
+      "classes": "$steps.menu_split.tail",
+      "version": "ViT-B-16"
+    },
+    {
+      "type": "IntakeEstimator",
+      "name": "estimator",
+      "image": "$inputs.image",
+      "predictions": "$steps.seg.predictions",
+      "foods": "$steps.foods.predictions",
+      "sims_head": "$steps.clip_head.similarities",
+      "sims_tail": "$steps.clip_tail.similarities",
+      "menu": "$inputs.menu"
+    },
+    {
+      "type": "CropName",
+      "name": "crop_names",
+      "sims_head": "$steps.clip_head.similarities",
+      "sims_tail": "$steps.clip_tail.similarities",
+      "menu": "$inputs.menu"
+    },
+    {
+      "type": "roboflow_core/detections_classes_replacement@v1",
+      "name": "named",
+      "object_detection_predictions": "$steps.foods.predictions",
+      "classification_predictions": "$steps.crop_names.name",
+      "fallback_class_name": "food"
+    },
+    {
+      "type": "roboflow_core/mask_visualization@v1",
+      "name": "viz_masks",
+      "image": "$inputs.image",
+      "predictions": "$steps.named.predictions",
+      "opacity": 0.45,
+      "color_axis": "INDEX"
+    },
+    {
+      "type": "roboflow_core/polygon_visualization@v1",
+      "name": "viz_plate",
+      "image": "$steps.viz_masks.image",
+      "predictions": "$steps.plates.predictions",
+      "thickness": 3
+    },
+    {
+      "type": "roboflow_core/label_visualization@v1",
+      "name": "viz_labels",
+      "image": "$steps.viz_plate.image",
+      "predictions": "$steps.named.predictions",
+      "text": "Class",
+      "text_position": "CENTER",
+      "text_scale": 0.6,
+      "color_axis": "INDEX"
+    }
+  ],
+  "outputs": [
+    {
+      "type": "JsonField",
+      "name": "qr",
+      "selector": "$steps.estimator.qr"
+    },
+    {
+      "type": "JsonField",
+      "name": "estimate",
+      "selector": "$steps.estimator.estimate"
+    },
+    {
+      "type": "JsonField",
+      "name": "annotated_image",
+      "selector": "$steps.viz_labels.image"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "qr": null,
+  "estimate": {
+    "plate_found": true,
+    "plate_area_px": 105325,
+    "food_frac_total": 0.3309,
+    "needs_review": true,
+    "review_reasons": [
+      "low_clip"
+    ],
+    "items": [
+      {
+        "name": "pasta",
+        "clip_score": 0.9958,
+        "det_conf": 0.962,
+        "area_frac": 0.1005,
+        "centroid": [
+          0.3175,
+          0.3716
+        ]
+      },
+      {
+        "name": "carrots",
+        "clip_score": 0.3455,
+        "det_conf": 0.9492,
+        "area_frac": 0.0152,
+        "centroid": [
+          0.3857,
+          0.6397
+        ]
+      },
+      {
+        "name": "white fish",
+        "clip_score": 0.9356,
+        "det_conf": 0.9439,
+        "area_frac": 0.1371,
+        "centroid": [
+          0.5835,
+          0.3375
+        ]
+      },
+      {
+        "name": "carrots",
+        "clip_score": 0.5396,
+        "det_conf": 0.8297,
+        "area_frac": 0.0781,
+        "centroid": [
+          0.4795,
+          0.5168
+        ]
+      }
+    ]
+  },
+  "annotated_image": "<stripped base64 jpeg>"
+}
