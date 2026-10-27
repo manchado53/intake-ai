@@ -1,0 +1,24 @@
+# Intake.ai look: purple accent, warm off-white, small radii (see docs/research/roboflow-ui-style.md)
+[theme]
+base = "light"
+primaryColor = "#8315F9"
+backgroundColor = "#FCFBF9"
+secondaryBackgroundColor = "#F3EEFF"
+textColor = "#1D1D1F"
+linkColor = "#6706CE"
+borderColor = "#E7E4F0"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "Geist Mono:https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap, monospace"
+headingFontWeights = [700, 600, 600, 600, 600, 600]
+baseRadius = "8px"
+buttonRadius = "6px"
+violetColor = "#8315F9"
+blueColor = "#6329B7"
+greenColor = "#15803D"
+orangeColor = "#D97706"
+redColor = "#D92D20"
+chartCategoricalColors = ["#8315F9", "#C29AF6", "#6329B7", "#15803D", "#D97706", "#D92D20"]
+
+[theme.sidebar]
+backgroundColor = "#F4F2EC"
+secondaryBackgroundColor = "#ECEAE6"

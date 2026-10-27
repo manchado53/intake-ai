@@ -18,6 +18,12 @@ from app import alerts, cards, store  # noqa: E402
 
 REFRESH_S = 2
 FEED_LIMIT = 30
+ACCENT, LOW, INK = "#8315F9", "#D92D20", "#1D1D1F"  # match .streamlit/config.toml
+CSS = """<style>
+[data-testid="stMetricLabel"] p { font-family: "Geist Mono", ui-monospace, monospace; text-transform: uppercase;
+  letter-spacing: .06em; font-size: .75rem; }
+[data-testid="stSidebar"] { border-right: 1px solid #E7E4F0; }
+</style>"""
 
 st.set_page_config(page_title="Intake.ai – dietitian view", page_icon="🍽️", layout="wide")
 
@@ -122,18 +128,19 @@ def resident_detail(records):
         return
     df = pd.DataFrame([{"meal": f"{m['date'][5:]} {m['meal']}", "pct": m["pct"],
                         "low": m["pct"] < alerts.LOW_PCT} for m in mine])
-    bars = alt.Chart(df).mark_bar().encode(
+    bars = alt.Chart(df).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
         x=alt.X("meal:N", sort=None, title=None),
         y=alt.Y("pct:Q", scale=alt.Scale(domain=[0, 100]), title="% eaten"),
-        color=alt.condition("datum.low", alt.value("#d33"), alt.value("#999")),
+        color=alt.condition("datum.low", alt.value(LOW), alt.value(ACCENT)),
         tooltip=["meal", "pct"],
     )
-    rule = alt.Chart(pd.DataFrame({"y": [alerts.LOW_PCT]})).mark_rule(strokeDash=[4, 4]).encode(y="y:Q")
+    rule = alt.Chart(pd.DataFrame({"y": [alerts.LOW_PCT]})).mark_rule(strokeDash=[4, 4], color=INK).encode(y="y:Q")
     st.altair_chart((bars + rule).properties(height=260), width="stretch")
 
 
 # ---------- page ----------
 
+st.markdown(CSS, unsafe_allow_html=True)
 st.title("Intake.ai – dietitian view")
 
 
@@ -154,6 +161,7 @@ def live(page):
 
 page = st.sidebar.radio("Page", ["Live feed", "Residents", "QR cards"])
 st.sidebar.caption(f"Auto-refresh every {REFRESH_S} s · fake residents only")
+st.sidebar.caption("Runs on Roboflow Inference")
 
 if page != "QR cards":
     live(page)
