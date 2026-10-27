@@ -4,8 +4,8 @@ Guide for coding agents working in this repo. Read this first.
 
 ## What this is
 **Intake.ai**: camera-based meal intake tracking (currently aimed at nursing homes), built as a Roboflow
-Field Engineering tech challenge (proof-of-concept). Live demo **Wed 2026-10-28, 6 pm CDT,
-Zoom, 30 min hard stop, must be live**.
+Field Engineering tech challenge (proof-of-concept). Live demo **Wed 2026-10-28, 12 pm CDT** (moved from 6 pm),
+Zoom, 1 h: 30 min talk + live demo, then 30 min Q&A (see `context/prep-call-2026-10-27.md`).
 
 **Fixed (from the brief):** own data, a trained Roboflow model, a Workflow with a custom block,
 deployment on Roboflow Inference, actionable insights. See `context/brief-summary.md`.
@@ -33,6 +33,7 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `context/` | Challenge brief + recruiting email summary |
 | `context/market-research.md` | Competitors + similar initiatives (Meal Vision, Nuvilab, AFINI-T, waste vision, patents), market size, honest differentiation |
 | `context/nursing-home-rules.md` | US nursing-home rules + practice for meal intake (CMS F-tags, MDS, HIPAA, design rules). Read before designing alerts, reports, or privacy |
+| `context/prep-call-2026-10-27.md` | Recruiter prep call: panel format + names, what they judge (See-Understand-Act, ROI, production, Active Learning), must-dos (Inference, backup video). Read before building the demo or deck |
 | `context/senior-dining-service.md` | How senior homes serve meals (plated vs tray, 9" plate, charting, puree) + sources. Why v1 = one main plate, tray-sized view |
 
 ## Setup (Windows laptop)
