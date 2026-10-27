@@ -59,3 +59,12 @@ from its stylesheet (`/_next/static/immutable/chunks/3ibrnkhpeeptj.css`):
 Look on the page: ink sections with huge lavender type, cream sections, dotted grids, and
 lavender "viewfinder" corner brackets around media. The station screen uses ink + dot grid +
 bracketed panels; the dashboard uses cream + ink sidebar.
+
+## Update 2026-10-27 (2): more purple + Roboflow logo
+
+- Surfaces moved from ink to summit's deep purple: station bg `#120B22`, panels/idle `#251742`,
+  lines `#3A2766`; dashboard paper `#F7F3FE`, fills `#ECE1FC`, sidebar `#251742`, buttons `#6F3FD8`,
+  progress bars `#6F3FD8 -> #C29AF6`.
+- Logo: `app/assets/roboflow-logo.svg` (cream, for dark) and `roboflow-logo-ink.svg`, downloaded
+  from roboflow.com (`/_next/static/immutable/media/roboflow-logo*.svg`). Used as "powered by"
+  next to the Intake.ai name (station top bar, inlined so it works offline; dashboard `st.logo`).

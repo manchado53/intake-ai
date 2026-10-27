@@ -18,13 +18,15 @@ from app import alerts, cards, store  # noqa: E402
 
 REFRESH_S = 2
 FEED_LIMIT = 30
-ACCENT, LOW, INK = "#C29AF6", "#EF4444", "#121110"  # match .streamlit/config.toml
+ACCENT, LOW, INK = "#8B5CF6", "#EF4444", "#251742"  # match .streamlit/config.toml
 CSS = """<style>
 h1, h2, h3 { letter-spacing: -.03em; }
 [data-testid="stMetricLabel"] p, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] label p {
   font-family: "Geist Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; }
 [data-testid="stMetricValue"] { letter-spacing: -.03em; }
 [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 { color: #C29AF6; }
+h1 { color: #251742; }
+[data-testid="stProgress"] div[role="progressbar"] > div > div { background: linear-gradient(90deg, #6F3FD8, #C29AF6); }
 </style>"""
 
 st.set_page_config(page_title="Intake.ai – dietitian view", page_icon="🍽️", layout="wide")
@@ -143,6 +145,7 @@ def resident_detail(records):
 # ---------- page ----------
 
 st.markdown(CSS, unsafe_allow_html=True)
+st.logo(str(Path(__file__).resolve().parent / "assets" / "roboflow-logo.svg"), size="large")
 st.title("Intake.ai – dietitian view")
 
 
@@ -163,7 +166,7 @@ def live(page):
 
 page = st.sidebar.radio("Page", ["Live feed", "Residents", "QR cards"])
 st.sidebar.caption(f"Auto-refresh every {REFRESH_S} s · fake residents only")
-st.sidebar.caption("Runs on Roboflow Inference")
+st.sidebar.caption("Intake.ai · powered by Roboflow Inference")
 
 if page != "QR cards":
     live(page)

@@ -1,13 +1,13 @@
-# Intake.ai look, after summit.roboflow.com: cream paper, ink type, lavender accent, square corners,
+# Intake.ai look, after summit.roboflow.com, pushed purple: lavender paper, ink type, lavender accent, square corners,
 # mono labels (tokens + sources in docs/research/roboflow-ui-style.md)
 [theme]
 base = "light"
-primaryColor = "#121110"
-backgroundColor = "#F4F2EC"
-secondaryBackgroundColor = "#E6E3DC"
+primaryColor = "#6F3FD8"
+backgroundColor = "#F7F3FE"
+secondaryBackgroundColor = "#ECE1FC"
 textColor = "#121110"
-linkColor = "#121110"
-borderColor = "#D9D5CC"
+linkColor = "#6F3FD8"
+borderColor = "#D9C1F3"
 font = "Inter Tight:https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap, sans-serif"
 codeFont = "Geist Mono:https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap, monospace"
 headingFontWeights = [500, 500, 500, 500, 500, 500]
@@ -18,10 +18,10 @@ blueColor = "#8FD3FF"
 greenColor = "#15803D"
 orangeColor = "#D97706"
 redColor = "#EF4444"
-chartCategoricalColors = ["#C29AF6", "#121110", "#8FD3FF", "#FFA6D6", "#8B887F", "#EF4444"]
+chartCategoricalColors = ["#C29AF6", "#6F3FD8", "#8FD3FF", "#FFA6D6", "#8B887F", "#EF4444"]
 
 [theme.sidebar]
-backgroundColor = "#121110"
-secondaryBackgroundColor = "#1C1A19"
+backgroundColor = "#251742"
+secondaryBackgroundColor = "#3A2766"
 textColor = "#F4F2EC"
-borderColor = "#2A2725"
+borderColor = "#3A2766"
