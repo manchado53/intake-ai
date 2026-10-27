@@ -53,3 +53,25 @@ def test_after_with_empty_before_does_not_crash(tmp_path):
 def sc_date():
     from datetime import date
     return date.today().isoformat()
+
+
+def test_before_and_after_pictures_side_by_side(tmp_path):
+    sc, client, screen, menu = make(tmp_path)
+    frame = np.zeros((48, 64, 3), np.uint8)
+    client.items = [{"name": m, "area_frac": 0.1} for m in menu]
+    assert sc.ready_text("R01").endswith("BEFORE: press SCAN")
+    sc.scan(frame, local_qr="R01")
+    assert screen.before_jpg and screen.after_jpg is None
+    before_pic = screen.before_jpg
+    assert sc.ready_text("R01").endswith("AFTER: press SCAN")
+    assert screen.before_jpg == before_pic  # card back in view: its BEFORE is on screen again
+    client.items = [{"name": m, "area_frac": 0.05} for m in menu]
+    b = sc.scan(frame + 1, local_qr="R01")
+    assert b["phase"] == "after" and screen.before_jpg == before_pic and screen.after_jpg
+
+
+def test_failed_scan_keeps_pictures(tmp_path):
+    sc, client, screen, menu = make(tmp_path)
+    frame = np.zeros((48, 64, 3), np.uint8)
+    sc.scan(frame, local_qr="R01")  # no food -> error
+    assert screen.before_jpg is None and sc.store.picture("R01", "lunch", sc_date(), "before") is None

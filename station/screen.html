@@ -10,8 +10,13 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
     font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
   body { display: flex; flex-direction: column; padding: 1.2vh 1.5vw; gap: 1.2vh; }
-  #status { border-radius: 14px; padding: 2vh 2vw; background: #475569; transition: background .2s; }
-  #text { font-size: clamp(28px, 6.2vw, 96px); font-weight: 800; line-height: 1.05; }
+  #status { border-radius: 14px; padding: 2vh 2vw; background: #475569; transition: background .2s;
+    display: flex; align-items: center; gap: 2vw; }
+  #words { flex: 1; min-width: 0; }
+  #scan { display: none; font: inherit; font-size: clamp(24px, 4.5vw, 72px); font-weight: 800; color: #0b1220;
+    background: #f8fafc; border: 0; border-radius: 14px; padding: 1.5vh 3vw; cursor: pointer; }
+  #scan:active { transform: scale(.97); }
+  #text { font-size: clamp(24px, 4.6vw, 80px); font-weight: 800; line-height: 1.05; }
   #sub { font-size: clamp(16px, 2.6vw, 40px); margin-top: .6vh; opacity: .95; min-height: 1.2em; }
   #views { display: flex; gap: 1.5vw; flex: 1; min-height: 0; }
   .view { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--panel);
@@ -29,21 +34,33 @@
 </style>
 </head>
 <body>
-  <div id="status"><div id="text">Starting…</div><div id="sub"></div></div>
+  <div id="status">
+    <div id="words"><div id="text">Starting…</div><div id="sub"></div></div>
+    <button id="scan" type="button">SCAN</button>
+  </div>
   <div id="views">
     <div class="view"><h2>Camera</h2><img id="live" src="/video" alt="live camera"></div>
-    <div class="view"><h2>Last scan</h2><img id="ann" src="/annotated.jpg" alt="last annotated scan"></div>
+    <div class="view"><h2>Before</h2><img id="before" src="/before.jpg" alt="before scan"></div>
+    <div class="view"><h2>After</h2><img id="after" src="/after.jpg" alt="after scan"></div>
   </div>
   <div id="items"></div>
   <div id="foot"><span>Intake.ai station</span><span id="meta"></span></div>
 <script>
 let lastSeq = -1;
+async function scan() { await fetch('/scan', {method: 'POST'}); }
+document.getElementById('scan').addEventListener('click', scan);
+document.addEventListener('keydown', e => {
+  if ((e.code === 'Space' || e.code === 'Enter') && document.getElementById('scan').style.display !== 'none') {
+    e.preventDefault(); scan();
+  }
+});
 async function poll() {
   try {
     const s = await (await fetch('/state', {cache: 'no-store'})).json();
     document.getElementById('status').style.background = s.color;
     document.getElementById('text').textContent = s.text;
     document.getElementById('sub').textContent = s.sub || '';
+    document.getElementById('scan').style.display = s.kind === 'ready' ? 'block' : 'none';
     document.getElementById('meta').textContent =
       (s.outbox_pending ? s.outbox_pending + ' waiting to send · ' : 'all sent · ') + s.time;
     if (s.seq !== lastSeq) {
@@ -61,8 +78,10 @@ async function poll() {
         row.children[2].textContent = pct == null ? '' : pct + '%';
         box.appendChild(row);
       }
-      if (['before', 'after', 'error'].includes(s.kind))
-        document.getElementById('ann').src = '/annotated.jpg?t=' + Date.now();
+      if (['ready', 'before', 'after', 'error', 'idle'].includes(s.kind)) {
+        document.getElementById('before').src = '/before.jpg?t=' + Date.now();
+        document.getElementById('after').src = '/after.jpg?t=' + Date.now();
+      }
     }
   } catch (e) {
     document.getElementById('text').textContent = 'Station offline';

@@ -18,6 +18,9 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS scans (
     scan_id TEXT PRIMARY KEY, time TEXT, date TEXT, resident_id TEXT, meal TEXT,
     phase TEXT, status TEXT, fracs TEXT, body TEXT);
+CREATE TABLE IF NOT EXISTS pictures (
+    resident_id TEXT, meal TEXT, date TEXT, phase TEXT, jpg BLOB,
+    PRIMARY KEY (resident_id, meal, date, phase));
 CREATE TABLE IF NOT EXISTS outbox (
     scan_id TEXT PRIMARY KEY, body TEXT, created REAL, attempts INTEGER DEFAULT 0,
     last_error TEXT, sent REAL);
@@ -61,10 +64,22 @@ class Store:
                              (resident_id, meal, date)).fetchone()
         return json.loads(row["fracs"]) if row else None
 
+    def save_picture(self, resident_id, meal, date, phase, jpg):
+        """Latest annotated picture per resident + meal + date + phase (for the side-by-side screen)."""
+        with self.lock, self._db() as db:
+            db.execute("INSERT OR REPLACE INTO pictures VALUES (?,?,?,?,?)", (resident_id, meal, date, phase, jpg))
+
+    def picture(self, resident_id, meal, date, phase):
+        with self.lock, self._db() as db:
+            row = db.execute("SELECT jpg FROM pictures WHERE resident_id=? AND meal=? AND date=? AND phase=?",
+                             (resident_id, meal, date, phase)).fetchone()
+        return bytes(row["jpg"]) if row else None
+
     def reset(self):
-        """Forget every scan and unsent result (fresh start before a demo). Returns scans dropped."""
+        """Forget every scan, picture and unsent result (fresh start before a demo). Returns scans dropped."""
         with self.lock, self._db() as db:
             n = db.execute("DELETE FROM scans").rowcount
+            db.execute("DELETE FROM pictures")
             db.execute("DELETE FROM outbox")
         return n
 

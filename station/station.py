@@ -39,6 +39,9 @@ class Screen:
         self.lock = threading.Lock()
         self.live_jpg = None
         self.annotated_jpg = None
+        self.before_jpg = None  # open meal's BEFORE, shown next to its AFTER
+        self.after_jpg = None
+        self.scan_request = threading.Event()  # set by the SCAN button
         self.state = {}
         self.history = []
         self.since = 0.0
@@ -126,8 +129,15 @@ class Scanner:
 
         self.store.save_scan(body, date, fracs)
         self.store.enqueue(body)
-        if ann:
-            self.screen.annotated_jpg = base64.b64decode(ann)
+        pic = base64.b64decode(ann) if ann else None
+        if pic:
+            self.screen.annotated_jpg = pic
+        if body["status"] == "ok":
+            pic = pic or base64.b64decode(jpeg_b64(frame))
+            self.store.save_picture(qr, meal, date, body["phase"], pic)
+            before_pic = self.store.picture(qr, meal, date, "before")
+            self.screen.before_jpg = before_pic
+            self.screen.after_jpg = pic if body["phase"] == "after" else None
         self._show(body, person)
         print(f"scan {body['scan_id']}: {body['status']} {body['phase']} "
               f"total={body['total_pct_eaten']} bin={body['chart_bin']} review={body['review_reasons']}")
@@ -160,6 +170,19 @@ class Scanner:
             return s.set("after", "AFTER: no change measured", AMBER, sub, items)
         return s.set("after", f"AFTER: ate {b['chart_bin']}% ✓", color, sub, items)
 
+    def ready_text(self, qr):
+        """Status line while a card is in view and the station waits for SCAN; also puts this
+        resident's BEFORE picture (if any) on screen so staff see what the AFTER compares to."""
+        person = self.residents.get(qr)
+        if person is None:
+            return f"Card {qr} – press SCAN"
+        meal = current_meal(datetime.now(), self.profiles["meal_times"], self.meal_override)
+        date = datetime.now().date().isoformat()
+        has_before = bool(meal) and self.store.open_before(qr, meal, date) is not None
+        self.screen.before_jpg = self.store.picture(qr, meal, date, "before") if has_before else None
+        self.screen.after_jpg = None
+        return f"{person['name']} – {meal or 'no meal now'} {'AFTER' if has_before else 'BEFORE'}: press SCAN"
+
 
 # --- sources -----------------------------------------------------------------
 def open_camera(src):
@@ -181,13 +204,25 @@ def open_camera(src):
     return cap, 1.0 / fps
 
 
-def run_live(src, scanner, screen, stop):
-    """Camera / video: scan when the same QR text is steady for STABLE_S; re-arm after GONE_S without it."""
+def run_live(src, scanner, screen, stop, auto=False):
+    """Camera / video: a card in view shows "press SCAN"; the SCAN button scans the newest frame.
+    auto=True: scan on its own once the same QR text is steady for STABLE_S (old behaviour)."""
     cap, frame_dt = open_camera(src)
     if not cap.isOpened():
         raise SystemExit(f"cannot open source {src}")
     armed, cand, since, last_seen, last_check = True, None, 0.0, 0.0, 0.0
     busy = threading.Event()
+
+    def start_scan(f, q):
+        screen.set("busy", "Reading plate…", BLUE, f"card {q}")
+        busy.set()
+
+        def work():
+            try:
+                scanner.scan(f, local_qr=q)
+            finally:
+                busy.clear()
+        threading.Thread(target=work, daemon=True).start()
     while not stop.is_set():
         ok, frame = cap.read()
         if not ok:
@@ -199,7 +234,16 @@ def run_live(src, scanner, screen, stop):
         now = time.time()
         if frame_dt:
             time.sleep(frame_dt)
-        if busy.is_set() or now - last_check < 0.2:
+        if busy.is_set():
+            screen.scan_request.clear()  # a press while reading doesn't queue a second scan
+            continue
+        if screen.scan_request.is_set():
+            screen.scan_request.clear()
+            if cand and now - last_seen <= GONE_S:
+                armed = False
+                start_scan(frame.copy(), cand)
+                continue
+        if now - last_check < 0.2:
             continue
         last_check = now
         text = read_qr(frame)
@@ -208,22 +252,17 @@ def run_live(src, scanner, screen, stop):
             last_seen = now
             if text != cand:
                 cand, since = text, now
-            if armed and now - since >= STABLE_S:
-                armed = False
-                screen.set("busy", "Reading plate…", BLUE, f"card {text}")
-                busy.set()
-
-                def work(f=frame.copy(), q=text):
-                    try:
-                        scanner.scan(f, local_qr=q)
-                    finally:
-                        busy.clear()
-                threading.Thread(target=work, daemon=True).start()
-            elif armed and st["kind"] != "hold":
-                screen.set("hold", "Hold still…", BLUE, f"card {text}")
+            if auto:
+                if armed and now - since >= STABLE_S:
+                    armed = False
+                    start_scan(frame.copy(), text)
+                elif armed and st["kind"] != "hold":
+                    screen.set("hold", "Hold still…", BLUE, f"card {text}")
+            elif st["kind"] == "idle" or (st["kind"] == "ready" and st["sub"] != f"card {text}"):
+                screen.set("ready", scanner.ready_text(text), BLUE, f"card {text}")
         elif now - last_seen > GONE_S:
             armed, cand = True, None
-            if st["kind"] == "hold" or (st["kind"] not in ("idle", "busy") and st["age_s"] > RESULT_S):
+            if st["kind"] in ("hold", "ready") or (st["kind"] not in ("idle", "busy") and st["age_s"] > RESULT_S):
                 screen.set("idle", "Place plate + card", GREY)
     cap.release()
 
@@ -266,6 +305,21 @@ def make_app(screen, store):
         return Response(screen.annotated_jpg or blank, media_type="image/jpeg",
                         headers={"Cache-Control": "no-store"})
 
+    @app.get("/before.jpg")
+    def before():
+        return Response(screen.before_jpg or blank, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    @app.get("/after.jpg")
+    def after():
+        return Response(screen.after_jpg or blank, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    @app.post("/scan")
+    def scan():
+        ready = screen.get()["kind"] == "ready"
+        if ready:
+            screen.scan_request.set()
+        return JSONResponse({"ok": ready})
+
     @app.get("/video")
     def video():
         def gen():
@@ -298,6 +352,7 @@ def main():
     ap.add_argument("--exit-when-done", action="store_true", help="folder/video: quit after the last frame")
     ap.add_argument("--no-photo", action="store_true", help="don't send the annotated photo to the dashboard")
     ap.add_argument("--reset", action="store_true", help="forget all saved scans + unsent results first")
+    ap.add_argument("--auto", action="store_true", help="scan on a steady card without waiting for SCAN")
     args = ap.parse_args()
 
     with open(args.profiles, encoding="utf-8") as fh:
@@ -319,7 +374,7 @@ def main():
         if os.path.isdir(args.source):
             run_folder(args.source, scanner, screen, stop, args.pause)
         else:
-            run_live(args.source, scanner, screen, stop)
+            run_live(args.source, scanner, screen, stop, auto=args.auto)
         if not args.exit_when_done:
             print("source done; screen stays up (Ctrl+C to quit)")
             while True:
