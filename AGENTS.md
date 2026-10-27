@@ -29,6 +29,16 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `training/` | Rosie scripts: build filtered dataset + train RF-DETR Seg (`train_variant.py`, `overnight.sbatch`), score + draw (`eval_pub.py`, `viz04.py`) |
 | `docs/datasets.md` | What each data source contains (our meals, FLIC, MyFoodRepo): photos, weights, menus, limits |
 | `docs/setup.md` | Hardware, decisions, driver setup, validation log (append results here) |
+| `docs/contracts.md` | The 3 JSON shapes the pieces share: Workflow `estimate`, station -> dashboard POST, `profiles.json`. Change it first, then the code |
+| `config/profiles.json` | Fake residents, today's menu per meal, portion kcal/protein, meal times |
+| `workflow/` | Roboflow Workflow `intake-plate`: spec JSON, `intake_estimator.py` (custom block code: area math, CLIP names, QR), `build_spec.py` pastes it into the spec |
+| `station/` | Kitchen station: camera -> QR -> SCAN button -> Workflow -> before/after % (`intake.py`) -> `station.db` -> POST; `screen.html` = staff screen (camera / before / after) |
+| `app/` | Dietitian dashboard: FastAPI `/api/scan` (`server.py`) + Streamlit "Today" screen (`dashboard.py`), alert rule (`alerts.py`), QR cards, seed data |
+| `deploy/orin/` | Scripts that live in `~/intake` on the Orin: start the station, kiosk window, Workflow timing |
+| `eval/` | `pct_vs_scale.py` (% eaten vs kitchen scale through the real Workflow), `depth_vs_area.py` |
+| `tests/` | pytest for all of the above: `.venv-app/Scripts/python -m pytest tests -q` |
+| `docs/research/orin-setup.md` | Orin: JetPack 6.0, Inference container flags, camera, gotchas |
+| `docs/research/roboflow-ui-style.md` | UI colors/fonts taken from summit.roboflow.com + logo source |
 | `plans/` | Plain-English plans; one file per task |
 | `context/` | Challenge brief + recruiting email summary |
 | `context/market-research.md` | Competitors + similar initiatives (Meal Vision, Nuvilab, AFINI-T, waste vision, patents), market size, honest differentiation |
