@@ -185,9 +185,9 @@ before the SAM 3 check.
 | Model | Mask mAP50:95 on an unseen meal (meal_03) | >= 0.80 | 0.88 (v1b) |
 | Model | Plate found on every test image | 100% | not checked |
 | Model | Food P/R/F1 at the F1-best confidence | report | — |
-| **Task** | **Average error, % eaten vs scale (points)** | **<= 10** | not measured |
-| Task | Bias (signed average error) | within +/-5 | not measured |
-| Task | Same 25% bin as the scale | >= 80% | not measured |
+| **Task** | **Average error, % eaten vs scale (points)** | **<= 10** | **13.5 FLIC (126 dishes); 16.2 our meals** |
+| Task | Bias (signed average error) | within +/-5 | -9.6 FLIC; -16.2 our meals (reads low) |
+| Task | Same 25% bin as the scale | >= 80% | 67% FLIC; 39% our meals |
 | Task | Low eaters caught (scale < 50% eaten) | >= 90% | not measured |
 | Ops | Photo to % on the Orin | < 1 s | not measured |
 | Ops | Plates sent to review (Active Learning) | <= 10% | — |
@@ -205,6 +205,10 @@ Blob-count exact % stays a diagnostic, not a target.
 low-eater recall, latency and review rate are our own calls, not from a source.
 
 **Revisit if:** area-based % eaten can't reach <= 10 points (then depth/volume, D7).
+
+**Update 2026-10-28:** measured, see `docs/experiments/2026-10-28-pct-vs-scale.md`. Area is at
+13.5-16 points and our model matches FLIC's hand masks, so the gap is the area method itself
+(mounds, meat). This triggers the D7 depth follow-up.
 
 ---
 
