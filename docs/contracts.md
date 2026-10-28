@@ -31,7 +31,9 @@ Percentages are 0-100 floats. Times are ISO 8601 local time. Meals: `breakfast |
       {"name": "carrots",    "clip_score": 0.69, "det_conf": 0.88, "area_frac": 0.070, "centroid": [0.35, 0.66]}
     ]
   },
-  "annotated_image": {"type": "base64", "value": "<jpeg base64>"}
+  "annotated_image": {"type": "base64", "value": "<jpeg base64>"},
+  "foods": {"image": {...}, "predictions": [{"class": "pasta", "points": [{"x": 312, "y": 240}, ...], ...}]},
+  "plate": {"image": {...}, "predictions": [{"class": "plate", "points": [...], ...}]}
 }
 ```
 - `items`: one entry per **food blob**. Several blobs can share a name (two fish pieces); the station
@@ -45,6 +47,8 @@ Percentages are 0-100 floats. Times are ISO 8601 local time. Meals: `breakfast |
   8: hosted CLIP fails above 8 prompts), `confidence` (default 0.5).
 - The Workflow does not read the QR card: the station reads it, looks up the resident, and only
   then runs the Workflow with that resident's items.
+- `foods` / `plate`: the masks as polygons in image pixels (`foods` named by CLIP, like `items`).
+  Only the station's depth step uses them: it measures food height inside these masks.
 - The exact `annotated_image` key layout depends on the visualization block; the station must accept
   both `{"type":"base64","value":...}` and a bare base64 string.
 
@@ -83,6 +87,9 @@ Sent once per scan (before **and** after). JSON body:
   an item with `before_frac == 0` is skipped. `total_pct_eaten` uses the sums over items.
 - `chart_bin` = `total_pct_eaten` rounded to the nearest of 0/25/50/75/100.
 - `kcal` / `protein_g` per item = `pct_eaten / 100 * portion value` from profiles.
+- `method` (optional): `area` or `area+depth`. With depth (both scans had it), each item also has
+  `pct_area` and `pct_depth`, and `pct_eaten = mean(pct_area, pct_depth)`; `total_pct_eaten` is the
+  mean of the two totals. Without depth, `pct_eaten = pct_area` and `pct_depth` is null.
 - `scan_id` is unique; the dashboard ignores a repeated `scan_id` (the station retries).
 - `replaces` (optional): the `scan_id` this scan redoes (staff pressed REDO LAST). The dashboard
   drops the replaced scan everywhere. Same phase as the one it replaces.

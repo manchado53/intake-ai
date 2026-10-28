@@ -5,7 +5,8 @@
 **Answer:** yes, once height is measured from the plate's real shape. % eaten error on our 4
 weighed meals drops from **15.5 points (area) to 7.1 (depth)**, and to **5.8 when area and depth are
 averaged**. The average meets all three D9 targets on these meals, but that rule was picked after
-seeing the numbers, so it needs new meals to confirm. Not deployed: the demo still uses area.
+seeing the numbers, so it needs new meals to confirm. All 5 meals: area 14.5, depth 6.5, average
+5.5 (table below). Live on the station since PR #29.
 
 ## What was wrong
 
@@ -54,8 +55,21 @@ labels from `lab01f`.
 | Average of area and depth | 3.5 | -3.5 | 83% |
 
 Both hold up. On this meal depth alone beats the average, so the safe claim is: the plate-shape
-depth is the main fix; averaging with area is a hedge. All 5 meals (42 states): area ~14.5,
-depth ~6.4, average ~5.5 points.
+depth is the main fix; averaging with area is a hedge.
+
+## All 5 meals (42 eaten states, average error in % eaten points)
+
+| Meal | States | Area | Depth (plate shape) | Average |
+|---|---|---|---|---|
+| meal_01 (fresh check) | 6 | 8.8 | **2.3** | 3.5 |
+| meal_02 | 9 | 20.6 | 5.4 | 8.0 |
+| meal_03 (flat food) | 9 | **6.3** | 11.1 | **3.6** |
+| meal_04 | 9 | 18.5 | 4.9 | 6.9 |
+| meal_05 | 9 | 16.5 | 7.2 | 4.7 |
+| **All** | **42** | **14.5** | **6.5** | **5.5** |
+
+"Average" = mean of the area % and the depth % for each state, then the error across states.
+Live on the station since PR #29 (same rule, per item).
 
 ## Limits
 

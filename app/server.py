@@ -16,6 +16,8 @@ class Item(BaseModel):
     before_frac: Optional[float] = None
     after_frac: Optional[float] = None
     pct_eaten: Optional[float] = Field(None, ge=0, le=100)
+    pct_area: Optional[float] = None   # area-only %; pct_eaten = mean(pct_area, pct_depth) when depth ran
+    pct_depth: Optional[float] = None
     kcal: Optional[float] = None
     protein_g: Optional[float] = None
 
@@ -37,6 +39,7 @@ class Scan(BaseModel):
     protein_g: Optional[float] = None
     annotated_jpg_b64: Optional[str] = None
     replaces: Optional[str] = None  # scan_id this one redoes (station REDO LAST)
+    method: Optional[Literal["area", "area+depth"]] = None
 
 
 def create_app(db: str | None = None) -> FastAPI:

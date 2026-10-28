@@ -269,6 +269,16 @@
       "type": "JsonField",
       "name": "annotated_image",
       "selector": "$steps.viz_labels.image"
+    },
+    {
+      "type": "JsonField",
+      "name": "foods",
+      "selector": "$steps.named.predictions"
+    },
+    {
+      "type": "JsonField",
+      "name": "plate",
+      "selector": "$steps.plates.predictions"
     }
   ]
 }

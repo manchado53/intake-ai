@@ -25,3 +25,4 @@ Log/
 # research downloads
 research/*/data/
 .claude/
+plate_profile.json
