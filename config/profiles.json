@@ -3,7 +3,7 @@
   "meal_times": {"breakfast": ["06:00", "10:00"], "lunch": ["10:00", "15:00"], "dinner": ["15:00", "21:00"]},
   "residents": [
     {"id": "R01", "name": "Mary R.", "room": "104", "diet": "regular",
-     "meals": {"lunch": ["white fish", "pasta", "carrots"], "dinner": ["chicken", "mashed potatoes", "mixed vegetables"]}},
+     "meals": {"lunch": ["chicken", "pasta", "edamame"], "dinner": ["chicken", "mashed potatoes", "mixed vegetables"]}},
     {"id": "R02", "name": "John D.", "room": "110", "diet": "regular",
      "meals": {"lunch": ["pork chop", "rice", "green beans"], "dinner": ["chicken", "mashed potatoes", "mixed vegetables"]}},
     {"id": "R03", "name": "Rosa M.", "room": "112", "diet": "regular",
@@ -20,6 +20,7 @@
     "green beans":      {"portion": "1/2 cup", "kcal": 22,  "protein_g": 1},
     "chicken":          {"portion": "4 oz",    "kcal": 190, "protein_g": 35},
     "mashed potatoes":  {"portion": "1/2 cup", "kcal": 110, "protein_g": 2},
-    "mixed vegetables": {"portion": "1/2 cup", "kcal": 59,  "protein_g": 3}
+    "mixed vegetables": {"portion": "1/2 cup", "kcal": 59,  "protein_g": 3},
+    "edamame":          {"portion": "1/2 cup", "kcal": 94,  "protein_g": 9}
   }
 }
