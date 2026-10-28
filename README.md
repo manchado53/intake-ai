@@ -7,9 +7,9 @@ Workflow with custom blocks, deployed on **Roboflow Inference** at the edge (Jet
 
 ![Dietitian dashboard](docs/img/readme-dashboard.jpg)
 
-*The dietitian dashboard. John D. left most of his last 3 meals and always leaves the meat, so he is
-flagged with a suggested action. Two plates the camera was unsure about wait for review. On the right,
-the kitchen sees what food comes back and what it costs.*
+*The dietitian dashboard. John D. ate under 50% at his last 3 meals and left the meat 6 of 6 times,
+so the dashboard flags him and suggests a soft-diet check. Two plates the camera was unsure about
+wait for review. The right column shows the kitchen what food comes back and what it costs.*
 
 ---
 
@@ -39,14 +39,14 @@ intake is the early signal. Today an aide looks at the tray after the meal and w
 - **late**: a pattern shows up only when someone reads the charts days later;
 - **expensive**: staff time on every tray, every meal, every resident.
 
-Intake.ai takes two photos, one before and one after, and does the rest:
+Intake.ai photographs the plate before and after the meal and fills in the numbers:
 
 | Staff today | Intake.ai |
 |---|---|
 | Eyeball guess, whole plate | % eaten **per food**, from masks |
 | Paper / EHR entry by hand | Automatic, one QR card per resident |
 | Pattern spotted days later | Alert after 3 low meals in a row |
-| "Ate 50%" | "Ate 50%: 27 g protein of 60 g goal, leaves the chicken every time" |
+| "Ate 50%" | "Ate 50%: chicken 55%, pasta 39%, edamame 55%, 27 g protein" |
 
 Background: [`context/nursing-home-rules.md`](context/nursing-home-rules.md),
 [`context/senior-dining-service.md`](context/senior-dining-service.md),
@@ -99,14 +99,14 @@ flowchart LR
 | Model + Workflow | Roboflow Inference container on the Orin (hosted API as fallback) | RF-DETR Seg + CLIP + 2 custom Python blocks | [`workflow/`](workflow/) |
 | Station | Orin | Python, OpenCV QR, `inference_sdk`, SQLite outbox, FastAPI screen | [`station/`](station/) |
 | Dashboard | Laptop (stands in for the RD's PC / cloud) | FastAPI + SQLite + Streamlit + Altair | [`app/`](app/) |
-| Shared shapes | — | 3 JSON contracts | [`docs/contracts.md`](docs/contracts.md) |
+| Shared shapes | all pieces | 3 JSON contracts | [`docs/contracts.md`](docs/contracts.md) |
 
 **Speed on the Orin:** the 11-step Workflow takes **0.64 s per plate**; the depth reading (10
 frames averaged) takes 0.42 s.
 
-**Edge first.** The Workflow runs next to the camera, so photos never leave the kitchen. Only the
-numbers and one small annotated picture go to the dashboard. If the network drops, scans wait in
-the station's outbox and are sent later. The station can also call Roboflow's hosted
+**Edge first.** The Workflow runs next to the camera, so meal photos stay in the kitchen. The
+station sends the dashboard the numbers and one small annotated picture. If the Wi-Fi drops, scans
+wait in the station's outbox and go out when it comes back. The station can also call Roboflow's hosted
 `serverless.roboflow.com` with the same Workflow; one environment variable switches between them.
 
 ---
@@ -158,8 +158,8 @@ flowchart LR
 - **The model finds "food" and "plate" only; CLIP names the food.** Menus change every day. A model
   trained on 15 dishes breaks on dish 16. CLIP only has to pick among the 3–4 words on *this
   resident's* menu, which is a much easier question ([D1](docs/decisions.md)).
-- **Plate area is the ruler.** Each food's area is divided by the plate's area, so the camera height
-  and zoom don't matter.
+- **Plate area is the ruler.** The custom block divides each food's area by the plate's area, so
+  camera height and zoom cancel out.
 - **The custom block flags doubt.** No plate, a weak detection or a low CLIP score sets
   `needs_review`, and the dashboard puts that plate in the review queue.
 
@@ -178,7 +178,7 @@ Full output shape: [`docs/contracts.md`](docs/contracts.md) §1. Custom block co
 
 ## 3. Act: the dietitian dashboard
 
-Every number on the dashboard is tied to someone who can act on it.
+Each row names the person who acts on that number.
 
 | Insight | Who acts | What they do |
 |---|---|---|
@@ -252,25 +252,26 @@ Labels (left) vs model (right) on canteen trays it never saw:
 
 ## How accurate is it?
 
-The number that matters is not mAP. It is **how far the camera's % eaten is from the kitchen scale**
-([D9](docs/decisions.md)). Every staged meal was weighed at each step on a 1 g scale.
+The headline metric is **how far the camera's % eaten lands from the kitchen scale**
+([D9](docs/decisions.md)). We weighed each staged meal at every step on a 1 g scale.
 
 | Method | Avg error vs scale (lower is better) | Reads |
 |---|---|---|
 | Staff by eye | ≈ 20 pts | high |
 | Area only (masks) | 14.5 pts | low |
 | Depth, using the plate's real shape | 6.5 pts | high |
-| **Average of area and depth (live on the station)** | **5.5 pts** | — |
+| **Average of area and depth (live on the station)** | **5.5 pts** | close to even |
 | Target | ≤ 10 pts | |
 
-*All 5 weighed meals, 42 eaten states. The averaging rule was picked on meals 2–5; meal 1 was held
-back and checked after: 3.5 pts. Still one kitchen and staged meals, so the next step is 2–3 new
-weighed meals with the code frozen.*
+*All 5 weighed meals, 42 eaten states. We picked the averaging rule on meals 2–5 and held meal 1
+back; it scored 3.5 pts when we checked it after. This is one kitchen with staged meals, so the next
+test is 2–3 new weighed meals with the code frozen.*
 
 - **Area misses food eaten from the top of a pile** (rice, mashed potatoes): the pile gets lower
   but covers the same space. Depth sees the height drop.
-- **The segmentation model is not the bottleneck.** On 126 FLIC dishes our masks give the same
-  error as FLIC's own hand-drawn masks (13.5 vs 14.0 points). Better masks won't fix area; depth does.
+- **Our masks match hand-drawn ones.** On 126 FLIC dishes, area with our masks errs 13.5 points
+  and area with FLIC's hand-drawn masks errs 14.0. The error comes from measuring area, so depth
+  fixes it and a bigger model would not.
 - Area reads low and depth reads high, so the average cancels most of both. Example plate: scale
   49%, area 39%, depth 58%, average 48.5%.
 - Staff estimates read about 20 points high ([`docs/research/success-metrics.md`](docs/research/success-metrics.md)).
@@ -286,17 +287,16 @@ Lining the depth camera up with the color camera ([`docs/calibration.md`](docs/c
 
 ## Known limits and the Active Learning loop
 
-What it does **not** do yet, said plainly:
-
-- **CLIP naming is the weak link.** Segmentation is good; naming similar-looking foods is not.
-  Seen on real plates: rice named "green beans", chicken named "mashed potatoes". These plates land in
-  the review queue (`missing_item`, `low_clip`). That flag only exists in the demo seed so far.
+- **CLIP mixes up similar-looking foods.** On real plates it called rice "green beans" and chicken
+  in sauce "mashed potatoes". Those plates go to the review queue (`low_clip`; `missing_item` lives
+  in the demo seed so far).
 - **One main plate per scan.** Trays, bowls, drinks and dessert are v2 ([D3](docs/decisions.md)).
 - **Small test.** 5 staged meals plus FLIC. Needs a pilot with real residents.
 - **Low eaters caught** (target ≥ 90%) is not measured yet. That is the first pilot metric.
 - **Depth needs the empty plate saved once** and a camera that sees the plate (shiny or dark spots read as holes).
 
-**How it gets better: Active Learning.** Deploying is the start, not the end ([D4](docs/decisions.md)):
+**Active Learning.** Plates the Workflow flags become training data for the next model
+([D4](docs/decisions.md)):
 
 ```
  scan ──► Workflow unsure? ──yes──► review queue ──► staff fixes the label ──► Roboflow dataset
