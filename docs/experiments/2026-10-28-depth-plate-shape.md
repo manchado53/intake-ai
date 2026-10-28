@@ -40,6 +40,23 @@ By meal: depth is best on piles (rice / mashed potatoes / meat meals: 5.8 pts vs
 is best on the flat meal (meal_03 fish, pasta, carrots: area 6.3, depth 11.1, average 3.6).
 Area errs low, depth errs high, so their average cancels most of both.
 
+## Fresh check: meal_01 (not used when choosing the method)
+
+meal_01 (bone-in chicken, peppers, pasta; 6 eaten states) was left out of the runs above, so it
+checks both the depth fix and the averaging rule on a meal they were not picked on. Same code,
+labels from `lab01f`.
+
+| Method | MAE (pts) | Bias | Same 25% bin |
+|---|---|---|---|
+| Area | 8.8 | -8.8 | 83% |
+| Depth, rim floor | 4.7 | +3.0 | 67% |
+| **Depth, plate shape** | **2.3** | +1.9 | 83% |
+| Average of area and depth | 3.5 | -3.5 | 83% |
+
+Both hold up. On this meal depth alone beats the average, so the safe claim is: the plate-shape
+depth is the main fix; averaging with area is a hedge. All 5 meals (42 states): area ~14.5,
+depth ~6.4, average ~5.5 points.
+
 ## Limits
 
 - 4 meals, 36 states, staged by us, one camera, one plate type per meal. The averaging rule was
