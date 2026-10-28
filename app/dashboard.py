@@ -114,6 +114,16 @@ FOOD_GROUP = {  # colors the per-food pieces of a meal bar
 GROUP_COLORS = {"protein": "#6329B7", "starch": "#F5A524", "veg / fruit": "#15803D", "other": "#94A3B8"}  # Roboflow UI purple, amber, green
 
 
+def food_bar(name, pct, where=st):
+    """One food's % eaten as a thin bar in its food-group color (matches the meal chart)."""
+    p = min(max(pct or 0, 0.0), 100.0)
+    color = GROUP_COLORS[FOOD_GROUP.get(name, "other")]
+    where.markdown(f'<div style="font-size:.95rem;margin:.35rem 0 .2rem">{name} · {p:.0f}%</div>'
+                   f'<div style="background:#EDE6FB;border-radius:4px;height:8px;margin-bottom:.5rem">'
+                   f'<div style="background:{color};width:{p:.1f}%;height:8px;border-radius:4px"></div></div>',
+                   unsafe_allow_html=True)
+
+
 def trend_by_food(scans, rid, last=10, height=260):
     """Meal bars split by food: each piece = that food's share of the meal's % eaten, so the pieces add
     up to the total (total = area gone / area served, summed over foods)."""
@@ -198,8 +208,7 @@ def resident_dialog(rid):
                 label("After", b)
                 photo((pair.get("after") or {}).get("annotated_jpg_b64"), b)
                 for it in (pair.get("after") or {}).get("items", []):
-                    p = it.get("pct_eaten") or 0
-                    st.progress(min(max(p / 100, 0.0), 1.0), text=f"{it['name']} · {p:.0f}%")
+                    food_bar(it["name"], it.get("pct_eaten"))
 
 
 @st.dialog("QR cards", width="large")
