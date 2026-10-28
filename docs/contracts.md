@@ -97,14 +97,17 @@ Sent once per scan (before **and** after). JSON body:
   "date": "2026-10-28",
   "meal_times": {"breakfast": ["06:00", "10:00"], "lunch": ["10:00", "15:00"], "dinner": ["15:00", "21:00"]},
   "residents": [
-    {"id": "R01", "name": "Mary R.", "room": "104", "diet": "regular",
-     "meals": {"lunch": ["white fish", "pasta", "carrots"]}}
+    {"id": "R01", "name": "Mary R.", "room": "104", "diet": "regular", "goals": {"kcal": 1100, "protein_g": 60},
+     "meals": {"lunch": ["chicken", "pasta", "edamame"]}}
   ],
   "menu_items": {
-    "white fish": {"portion": "4 oz", "kcal": 120, "protein_g": 26}
+    "chicken": {"portion": "4 oz", "kcal": 190, "protein_g": 35, "cost_usd": 1.10}
   }
 }
 ```
 - `meals` maps meal -> the menu words this resident is served today (must exist in `menu_items`).
+- `goals`: daily kcal + protein the dietitian wants from the **scanned plates** (drinks, dessert and
+  supplements are not scanned, so this is lower than the full-day need). Dashboard only.
+- `cost_usd`: estimated food cost of one portion, for the kitchen "what comes back" $. Dashboard only.
 - The Workflow's `menu` input = every key of `menu_items`.
 - Nutrition numbers are our own approximations for the demo; residents are fake.

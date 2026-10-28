@@ -65,8 +65,9 @@ def test_dashboard_renders(api, monkeypatch):
     assert not at.exception, at.exception
     md = " ".join(m.value for m in at.markdown)
     assert "John D." in md and "notify RD" in md  # seeded 3-low-meals alert
+    assert "LEAVES" in md and "what comes back" in md  # item-level + kitchen insights
     assert "Mary R." in md and "ate" in md  # live feed
-    assert [m.label for m in at.metric][:3] == ["Meals recorded today", "Average eaten", "Residents at risk"]
+    assert [m.label for m in at.metric][:3] == ["Meals recorded today", "Protein on track today", "Residents at risk"]
 
     at.button(key="n-R02").click().run()  # Notify RD clears the alert
     assert not at.exception, at.exception
