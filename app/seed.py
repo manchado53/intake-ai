@@ -17,16 +17,25 @@ skipped if the folder is missing). Mary R. is left alone for the live scan.
 The missing_item rule lives here only; the station does not flag a missing menu item yet.
 The % comes from station/intake.py, the same math the station runs.
 
+History photos: lunches and dinners of the last 3 days whose menu matches a recorded meal get a
+plain camera photo pair (no labels): BEFORE = the full plate (s0), AFTER = the recorded state
+whose camera % eaten (total food area vs s0, data/raw/eval_cache/) is closest to that meal's %.
+They are illustrations of a similar plate, not that resident's plate; the numbers stay synthetic.
+Shrunk to 320x240 so the DB stays small. Skipped if data/raw/ is missing.
+
 Idempotent: fixed scan_ids ("seed-..."), INSERT OR IGNORE.
 Rows are stored with synthetic=1 and station_id "synthetic-seed".
 
 Run (repo root): .venv-app/Scripts/python -m app.seed
 """
 import base64
+import functools
 import json
 import random
 from datetime import date, timedelta
 from pathlib import Path
+
+import cv2
 
 from app import store
 from station.intake import before_items, compare, group_items
@@ -40,6 +49,11 @@ KITCHEN_LEFT = {"pork chop": (40, 85), "green beans": (30, 80)}  # % eaten range
 PHOTOS = Path(__file__).resolve().parent.parent / "data" / "raw" / "demo_photos"
 REAL = {"R05": "meal_03", "R03": "meal_05", "R06": "meal_02"}  # today's lunch
 REAL_TIMES = ("11:15:00", "11:45:00")  # before, after
+RAW = Path(__file__).resolve().parent.parent / "data" / "raw"
+RECORDED = {("pork chop", "rice", "green beans"): "meal_02", ("white fish", "pasta", "carrots"): "meal_03",
+            ("chicken", "mashed potatoes", "mixed vegetables"): "meal_05"}
+PHOTO_DAYS = 3
+BEFORE_HOUR = {"breakfast": "07:35", "lunch": "11:40", "dinner": "17:00"}
 
 
 def chart_bin(pct: float) -> int:
@@ -84,6 +98,31 @@ def real_meal(r, day, meal, menu_items):
     return [before, after]
 
 
+@functools.cache
+def recorded_states(src):
+    """[(state, camera % eaten by total food area vs s0)] for s1..s9 of a recorded meal."""
+    def area(st):
+        est = json.loads((RAW / "eval_cache" / f"{src}_{st}.json").read_text(encoding="utf-8"))["estimate"]
+        return sum(i["area_frac"] for i in est["items"])
+    a0 = area("s0")
+    return [(f"s{k}", 100 * (1 - area(f"s{k}") / a0)) for k in range(1, 10)]
+
+
+@functools.cache
+def thumb(src, state):
+    img = cv2.resize(cv2.imread(str(RAW / src / f"{state}_1_color.png")), (320, 240))
+    return base64.b64encode(cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()).decode()
+
+
+def history_photos(menu_words, pct):
+    """(before, after) JPEG base64 of a recorded plate like this meal, or None."""
+    src = RECORDED.get(tuple(menu_words))
+    if not src or not (RAW / "eval_cache" / f"{src}_s0.json").exists() or not (RAW / src).exists():
+        return None
+    state = min(recorded_states(src), key=lambda s: abs(s[1] - pct))[0]
+    return thumb(src, "s0"), thumb(src, state)
+
+
 def build_scans(profiles: dict) -> list[dict]:
     rng = random.Random(42)
     today = date.fromisoformat(profiles["date"])
@@ -109,6 +148,17 @@ def build_scans(profiles: dict) -> list[dict]:
                               "protein_g": round(pct / 100 * menu[name]["protein_g"], 1)})
             total = round(100 * (1 - after_sum / before_sum), 1)
             t = f"{day.isoformat()}T{MEAL_HOUR[meal]}:00"
+            pics = history_photos(r["meals"][meal], total) if day >= today - timedelta(days=PHOTO_DAYS) else None
+            if pics:
+                scans.append({
+                    "scan_id": f"seed-{day.isoformat()}-{r['id']}-{meal}-before",
+                    "station_id": "synthetic-seed", "time": f"{day.isoformat()}T{BEFORE_HOUR[meal]}:00",
+                    "resident_id": r["id"], "meal": meal, "phase": "before", "status": "ok",
+                    "needs_review": False, "review_reasons": [],
+                    "items": before_items({x["name"]: x["before_frac"] for x in items}),
+                    "total_pct_eaten": None, "chart_bin": None, "kcal": None, "protein_g": None,
+                    "annotated_jpg_b64": pics[0], "synthetic": True,
+                })
             scans.append({
                 "scan_id": f"seed-{day.isoformat()}-{r['id']}-{meal}-after",
                 "station_id": "synthetic-seed", "time": t, "resident_id": r["id"], "meal": meal,
@@ -116,7 +166,7 @@ def build_scans(profiles: dict) -> list[dict]:
                 "items": items, "total_pct_eaten": total, "chart_bin": chart_bin(total),
                 "kcal": round(sum(x["kcal"] for x in items), 1),
                 "protein_g": round(sum(x["protein_g"] for x in items), 1),
-                "annotated_jpg_b64": None, "synthetic": True,
+                "annotated_jpg_b64": pics[1] if pics else None, "synthetic": True,
             })
         scans += real_meal(r, today, "lunch", menu) or []
     return scans
