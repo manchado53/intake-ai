@@ -101,6 +101,9 @@ flowchart LR
 | Dashboard | Laptop (stands in for the RD's PC / cloud) | FastAPI + SQLite + Streamlit + Altair | [`app/`](app/) |
 | Shared shapes | — | 3 JSON contracts | [`docs/contracts.md`](docs/contracts.md) |
 
+**Speed on the Orin:** the 11-step Workflow takes **0.64 s per plate**; the depth reading (10
+frames averaged) takes 0.42 s.
+
 **Edge first.** The Workflow runs next to the camera, so photos never leave the kitchen. Only the
 numbers and one small annotated picture go to the dashboard. If the network drops, scans wait in
 the station's outbox and are sent later. The station can also call Roboflow's hosted
@@ -212,21 +215,25 @@ So we made our own and mixed in public data:
 
 | Source | Images | Use |
 |---|---|---|
-| Our staged meals: Orbbec camera, kitchen scale (1 g), 9–10 states from full to empty | 89 train + 30 valid + 33 test | train + the honest test |
-| FLIC (Italian canteen trays, before/after, weighed) + MyFoodRepo (home photos), converted to our 2 classes | ~2,400 | train; held-out days / photos for testing |
+| Ours: our station, 5 staged meals, top-down, weighed on a 1 g scale | 152 (train 89 · valid 30 · test 33, split by meal) | train + the honest test |
+| FLIC: Italian school canteen, real leftovers, weighed | 1,845 | train; 341 from 4 unseen days = test |
+| MyFoodRepo: home meals, phone photos (kept 987 of ~44k) | 987 | train; 100 random = test |
+| **Total in Roboflow (dataset v2)** | **2,984** | |
 
 Labels came from **SAM 3** on Rosie, prompted with the menu words, then fixed rules and contact-sheet
 checks ([D2](docs/decisions.md), [D8](docs/decisions.md)).
 
-**Results** (mask mAP50:95, unseen sets):
+**Results** (mask mAP50:95 on 3 test sets it never trained on):
 
-| Model | Our unseen meal | FLIC holdout | MyFoodRepo holdout |
-|---|---|---|---|
-| v0: our meals only | 0.790 | 0.733 | 0.737 |
-| **v1b: + public data + light augmentation (deployed)** | **0.883** | **0.856** | **0.886** |
+| Model | Our unseen meal | FLIC | MyFoodRepo | **Average** |
+|---|---|---|---|---|
+| v0: our meals only | 0.790 | 0.733 | 0.737 | 0.753 |
+| v1: + public sets | 0.877 | 0.852 | 0.874 | 0.868 |
+| **v1b: + mild color augmentation (deployed)** | **0.883** | **0.856** | **0.886** | **0.875** |
 
 Public data helped every set, our own test meal too. Bigger model sizes (Medium → XLarge) did
-**not** beat Small, so Small stays.
+**not** beat Small (Nano 0.855 · Small 0.875 · Medium 0.862 · Large 0.872 · XLarge 0.871), so
+Small stays. Training: ~43 min per run on one H100.
 Details: [`docs/experiments/2026-10-27-seg-v0-v1-v1b.md`](docs/experiments/2026-10-27-seg-v0-v1-v1b.md),
 [`docs/experiments/2026-10-27-seg-sizes.md`](docs/experiments/2026-10-27-seg-sizes.md).
 
@@ -234,8 +241,9 @@ Labels (left) vs model (right) on canteen trays it never saw:
 
 ![Model vs labels on FLIC](docs/img/seg-v1-flic.jpg)
 
-**Naming with CLIP.** Tested on Food-101 before building: CLIP picks the right dish from a short
-menu almost every time on a full portion, but small leftover scraps are hard
+**Naming with CLIP.** CLIP picks each blob's name from the resident's own menu. It names
+**88%** of the food blobs right on our meals (126 of 144) and **93%** on 480 public Food-101 photos.
+15 of the 18 misses on our meals are small crumbs. Food-101 test
 ([`docs/clip-menu-test.md`](docs/clip-menu-test.md)):
 
 ![CLIP menu test](docs/img/clip-examples.png)
@@ -247,21 +255,25 @@ menu almost every time on a full portion, but small leftover scraps are hard
 The number that matters is not mAP. It is **how far the camera's % eaten is from the kitchen scale**
 ([D9](docs/decisions.md)). Every staged meal was weighed at each step on a 1 g scale.
 
-| Method | Avg error vs scale | Bias | Same 25% bin as scale |
-|---|---|---|---|
-| Area only (masks) | 15.5 pts | reads low | 36% |
-| Depth, using the plate's real shape | 7.1 pts | reads high | 69% |
-| **Average of area and depth** | **5.8 pts** | −4.3 | **81%** |
-| Target | ≤ 10 | within ±5 | ≥ 80% |
+| Method | Avg error vs scale (lower is better) | Reads |
+|---|---|---|
+| Staff by eye | ≈ 20 pts | high |
+| Area only (masks) | 14.5 pts | low |
+| Depth, using the plate's real shape | 6.5 pts | high |
+| **Average of area and depth (live on the station)** | **5.5 pts** | — |
+| Target | ≤ 10 pts | |
 
-*Our 4 weighed meals, 36 eaten states. A 5th meal kept aside agrees, but this is still a small test.*
+*All 5 weighed meals, 42 eaten states. The averaging rule was picked on meals 2–5; meal 1 was held
+back and checked after: 3.5 pts. Still one kitchen and staged meals, so the next step is 2–3 new
+weighed meals with the code frozen.*
 
 - **Area misses food eaten from the top of a pile** (rice, mashed potatoes): the pile gets lower
   but covers the same space. Depth sees the height drop.
 - **The segmentation model is not the bottleneck.** On 126 FLIC dishes our masks give the same
   error as FLIC's own hand-drawn masks (13.5 vs 14.0 points). Better masks won't fix area; depth does.
-- For comparison, staff estimates land in the same 25% bin as the scale only about 44% of the time
-  and tend to read high ([`docs/research/success-metrics.md`](docs/research/success-metrics.md)).
+- Area reads low and depth reads high, so the average cancels most of both. Example plate: scale
+  49%, area 39%, depth 58%, average 48.5%.
+- Staff estimates read about 20 points high ([`docs/research/success-metrics.md`](docs/research/success-metrics.md)).
 
 Details: [`docs/experiments/2026-10-28-pct-vs-scale.md`](docs/experiments/2026-10-28-pct-vs-scale.md),
 [`docs/experiments/2026-10-28-depth-plate-shape.md`](docs/experiments/2026-10-28-depth-plate-shape.md).
@@ -281,6 +293,7 @@ What it does **not** do yet, said plainly:
   the review queue (`missing_item`, `low_clip`). That flag only exists in the demo seed so far.
 - **One main plate per scan.** Trays, bowls, drinks and dessert are v2 ([D3](docs/decisions.md)).
 - **Small test.** 5 staged meals plus FLIC. Needs a pilot with real residents.
+- **Low eaters caught** (target ≥ 90%) is not measured yet. That is the first pilot metric.
 - **Depth needs the empty plate saved once** and a camera that sees the plate (shiny or dark spots read as holes).
 
 **How it gets better: Active Learning.** Deploying is the start, not the end ([D4](docs/decisions.md)):
