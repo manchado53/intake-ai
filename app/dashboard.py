@@ -188,7 +188,9 @@ def resident_dialog(rid):
         pair = by_meal.get((m["date"], m["meal"]), {})
         with st.container(border=True):
             st.markdown(f"**{m['date'][5:]} {m['meal']}** · ate **{fmt_pct(m['pct'])}**"
-                        + (f" · {m['kcal']:.0f} kcal · {m['protein_g']:.0f} g protein" if m["kcal"] is not None else ""))
+                        + (f" · {m['kcal']:.0f} kcal · {m['protein_g']:.0f} g protein" if m["kcal"] is not None else "")
+                        + (f"  \n:orange-badge[REVIEW] :gray[{', '.join(pair['after'].get('review_reasons') or [])}]"
+                           if (pair.get("after") or {}).get("needs_review") else ""))
             if pair.get("before") or pair.get("after"):
                 a, b = st.columns(2)
                 label("Before", a)

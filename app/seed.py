@@ -5,15 +5,29 @@ Planted patterns (so every dashboard insight has something to show before any li
   are under 50%, so the RD alert shows.
 - R03 Rosa M. eats less and less of her protein items over the week.
 - Kitchen: pork chop and green beans come back the most.
-Everyone else eats 60-100%. Idempotent: fixed scan_ids ("seed-..."), INSERT OR IGNORE.
+Everyone else eats 60-100%.
+
+Two of yesterday's dinners use REAL recorded meals (photos + hosted Workflow output in
+data/raw/demo_photos/, made with workflow/run_hosted.py; skipped if the folder is missing):
+- R03 Rosa M.: meal_03 (fish, pasta, carrots), all foods named right.
+- R01 Mary R.: meal_05 (chicken, mashed potatoes, mixed vegetables). CLIP named the chicken
+  "mashed potatoes" in the BEFORE photo, so it is marked for review ("missing_item: chicken").
+  That rule lives here only; the station does not flag a missing menu item yet.
+The % comes from station/intake.py, the same math the station runs.
+
+Idempotent: fixed scan_ids ("seed-..."), INSERT OR IGNORE.
 Rows are stored with synthetic=1 and station_id "synthetic-seed".
 
 Run (repo root): .venv-app/Scripts/python -m app.seed
 """
+import base64
+import json
 import random
 from datetime import date, timedelta
+from pathlib import Path
 
 from app import store
+from station.intake import before_items, compare, group_items
 
 MEAL_HOUR = {"breakfast": "08:00", "lunch": "12:15", "dinner": "17:30"}
 CHART_BINS = (0, 25, 50, 75, 100)
@@ -21,6 +35,8 @@ DAYS = 7
 MEAT = {"pork chop", "chicken", "white fish", "scrambled eggs"}
 PROTEIN = MEAT | {"yogurt"}
 KITCHEN_LEFT = {"pork chop": (40, 85), "green beans": (30, 80)}  # % eaten range for everyone else
+PHOTOS = Path(__file__).resolve().parent.parent / "data" / "raw" / "demo_photos"
+REAL = {("R03", "dinner"): "meal_03", ("R01", "dinner"): "meal_05"}  # yesterday only
 
 
 def chart_bin(pct: float) -> int:
@@ -39,6 +55,32 @@ def item_pct(rng, rid, name, i, n, low):
     return rng.uniform(*KITCHEN_LEFT.get(name, (60, 100)))
 
 
+def real_meal(r, day, meal, menu_items):
+    """Before + after scans from a recorded meal (s0 -> s5), or None if not planted / no photos."""
+    src = PHOTOS / REAL.get((r["id"], meal), "-")
+    if not (src / "s0_1_color.json").exists():
+        return None
+    plan = r["meals"][meal]
+    shots = {}
+    for phase, shot in (("before", "s0_1_color"), ("after", "s5_1_color")):
+        est = json.loads((src / f"{shot}.json").read_text(encoding="utf-8"))["estimate"]
+        fracs, reasons = group_items(est["items"], plan)
+        img = base64.b64encode((src / f"{shot}_annotated.jpg").read_bytes()).decode()
+        shots[phase] = (fracs, reasons, img)
+    missing = [n for n, f in shots["before"][0].items() if f == 0]
+    reasons = shots["before"][1] + shots["after"][1] + [f"missing_item: {n}" for n in missing]
+    base = {"station_id": "synthetic-seed", "resident_id": r["id"], "meal": meal, "status": "ok",
+            "needs_review": bool(reasons), "review_reasons": reasons, "synthetic": True}
+    before = {**base, "scan_id": f"seed-{day.isoformat()}-{r['id']}-{meal}-before", "phase": "before",
+              "time": f"{day.isoformat()}T17:00:00", "items": before_items(shots["before"][0]),
+              "total_pct_eaten": None, "chart_bin": None, "kcal": None, "protein_g": None,
+              "annotated_jpg_b64": shots["before"][2], "needs_review": False, "review_reasons": []}  # one card
+    after = {**base, "scan_id": f"seed-{day.isoformat()}-{r['id']}-{meal}-after", "phase": "after",
+             "time": f"{day.isoformat()}T{MEAL_HOUR[meal]}:00", "annotated_jpg_b64": shots["after"][2],
+             **compare(shots["before"][0], shots["after"][0], menu_items)}
+    return [before, after]
+
+
 def build_scans(profiles: dict) -> list[dict]:
     rng = random.Random(42)
     today = date.fromisoformat(profiles["date"])
@@ -50,6 +92,10 @@ def build_scans(profiles: dict) -> list[dict]:
         if "breakfast" in r["meals"]:
             slots.append((today, "breakfast"))
         for i, (day, meal) in enumerate(slots):
+            real = real_meal(r, day, meal, menu) if day == today - timedelta(days=1) else None
+            if real:
+                scans += real
+                continue
             low = r["id"] == "R02" and i >= len(slots) - 3
             items, before_sum, after_sum = [], 0.0, 0.0
             for name in r["meals"][meal]:
