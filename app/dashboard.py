@@ -111,7 +111,7 @@ FOOD_GROUP = {  # colors the per-food pieces of a meal bar
     **dict.fromkeys(["pasta", "rice", "mashed potatoes", "toast", "oatmeal"], "starch"),
     **dict.fromkeys(["carrots", "green beans", "mixed vegetables", "fruit cup"], "veg / fruit"),
 }
-GROUP_COLORS = {"protein": "#4B2A9A", "starch": "#8B5CF6", "veg / fruit": "#C9B3F7", "other": "#94A3B8"}  # app purples, dark -> light
+GROUP_COLORS = {"protein": "#6329B7", "starch": "#F5A524", "veg / fruit": "#15803D", "other": "#94A3B8"}  # Roboflow UI purple, amber, green
 
 
 def trend_by_food(scans, rid, last=10, height=260):
