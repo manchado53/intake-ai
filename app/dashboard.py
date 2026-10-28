@@ -336,6 +336,7 @@ def kitchen_feed(scans):
     """Live proof the station works: camera scans only (seeded history without a photo is skipped)."""
     label("From the kitchen · live")
     feed = [s for s in scans if not s.get("synthetic") or s.get("annotated_jpg_b64")]
+    feed.sort(key=lambda s: (not s.get("synthetic"), s["time"]), reverse=True)  # live scans on top, then newest
     if not feed:
         st.info("No scans yet. Waiting for the kitchen station…")
     for s in feed[:FEED_LIMIT]:
