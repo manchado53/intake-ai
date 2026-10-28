@@ -332,10 +332,12 @@ def kitchen_waste(scans, today):
                 f"Most money back: **{top['name']}** ({top['pct_left']:.0f}% left) → menu review")
 
 
-def kitchen_feed(scans):
-    """Live proof the station works: camera scans only (seeded history without a photo is skipped)."""
+def kitchen_feed(scans, today):
+    """Live proof the station works: camera scans only (seeded history is skipped, except today's
+    seeded real-photo lunches)."""
     label("From the kitchen · live")
-    feed = [s for s in scans if not s.get("synthetic") or s.get("annotated_jpg_b64")]
+    feed = [s for s in scans if not s.get("synthetic")
+            or (s.get("annotated_jpg_b64") and s["time"][:10] == today.isoformat())]
     feed.sort(key=lambda s: (not s.get("synthetic"), s["time"]), reverse=True)  # live scans on top, then newest
     if not feed:
         st.info("No scans yet. Waiting for the kitchen station…")
@@ -371,7 +373,7 @@ def today_screen():
         resident_grid(scans, records, today)
     with side:
         kitchen_waste(scans, today)
-        kitchen_feed(scans)
+        kitchen_feed(scans, today)
 
 
 st.markdown(CSS, unsafe_allow_html=True)
