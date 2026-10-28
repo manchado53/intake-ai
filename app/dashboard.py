@@ -106,6 +106,42 @@ def trend(mine, height=70, axes=False):
     return (bars + rule).properties(height=height)
 
 
+FOOD_GROUP = {  # colors the per-food pieces of a meal bar
+    **dict.fromkeys(["chicken", "pork chop", "white fish", "scrambled eggs", "yogurt", "edamame"], "protein"),
+    **dict.fromkeys(["pasta", "rice", "mashed potatoes", "toast", "oatmeal"], "starch"),
+    **dict.fromkeys(["carrots", "green beans", "mixed vegetables", "fruit cup"], "veg / fruit"),
+}
+GROUP_COLORS = {"protein": "#6F3FD8", "starch": "#C29AF6", "veg / fruit": "#2E9E6B", "other": "#94A3B8"}
+
+
+def trend_by_food(scans, rid, last=10, height=260):
+    """Meal bars split by food: each piece = that food's share of the meal's % eaten, so the pieces add
+    up to the total (total = area gone / area served, summed over foods)."""
+    rows = []
+    for s in [s for s in insights.meal_afters(scans) if s["resident_id"] == rid][-last:]:
+        served = sum(it.get("before_frac") or 0 for it in s.get("items") or [])
+        for it in s.get("items") or []:
+            if served and it.get("before_frac"):
+                gone = it["before_frac"] - (it.get("after_frac") or 0)
+                rows.append({"meal": f"{s['time'][5:10]} {s['meal']}", "food": it["name"],
+                             "group": FOOD_GROUP.get(it["name"], "other"),
+                             "share": round(100 * gone / served, 1), "ate": it.get("pct_eaten")})
+    if not rows:
+        return None
+    groups = [g for g in GROUP_COLORS if any(r["group"] == g for r in rows)]
+    bars = alt.Chart(pd.DataFrame(rows)).mark_bar(stroke="white", strokeWidth=1).encode(
+        x=alt.X("meal:N", sort=None, title=None, axis=alt.Axis(labelAngle=-30)),
+        y=alt.Y("sum(share):Q", scale=alt.Scale(domain=[0, 100]), title="% eaten"),
+        color=alt.Color("group:N", title=None,
+                        scale=alt.Scale(domain=groups, range=[GROUP_COLORS[g] for g in groups]),
+                        legend=alt.Legend(orient="top")),
+        order=alt.Order("group:N"),
+        tooltip=["meal", "food", alt.Tooltip("ate:Q", title="% of this food eaten"),
+                 alt.Tooltip("share:Q", title="points of the meal %")])
+    rule = alt.Chart(pd.DataFrame({"y": [alerts.LOW_PCT]})).mark_rule(strokeDash=[4, 4], color=INK).encode(y="y:Q")
+    return (bars + rule).properties(height=height)
+
+
 def photo(b64, where=st):
     if b64:
         try:
@@ -138,7 +174,10 @@ def resident_dialog(rid):
     st.caption(f"Diet: {r.get('diet', '—')}")
     mine = [m for m in records if m["resident_id"] == rid]
     done = [m for m in mine if m["pct"] is not None][-10:]
-    if done:
+    chart = trend_by_food(scans, rid)
+    if chart is not None:
+        st.altair_chart(chart, width="stretch")
+    elif done:
         st.altair_chart(trend(done, height=220, axes=True), width="stretch")
     label("Meals, newest first")
     by_meal = {}
