@@ -210,6 +210,18 @@ low-eater recall, latency and review rate are our own calls, not from a source.
 13.5-16 points and our model matches FLIC's hand masks, so the gap is the area method itself
 (mounds, meat). This triggers the D7 depth follow-up.
 
+**Update 2026-10-28 (depth):** measured with the plate-shape depth fix, see
+`docs/experiments/2026-10-28-depth-plate-shape.md`. Our 5 meals, 42 states, label masks:
+
+| % eaten from | Average error (pts) |
+|---|---|
+| Area | 14.5 |
+| Depth (plate shape) | 6.5 |
+| **Mean of area and depth** | **5.5** (meets <= 10) |
+
+The mean was picked after seeing meals 02-05; meal_01 was held back and held (depth 2.3, mean 3.5).
+FLIC has no depth, so its 13.5 stays area-only. The station uses the mean live since PR #29.
+
 ---
 
 ## Parked ideas (not doing yet; revisit only if the score says so)
