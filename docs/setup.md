@@ -115,6 +115,18 @@ flicker between frames. Image: `docs/img/plate-holes.png` (magenta = holes). See
   recalibration), or fill small holes from neighbors in code. Food itself is mostly matte, and
   `measure.py` skips 0 pixels.
 
+### Depth on the Orin (2026-10-28)
+- Camera must sit on the Orin's own USB hub: behind the extra WCH hub (1a86:8091) the depth
+  sensor browns out and drops off USB the moment it streams.
+- Driver: Orbbec OpenNI SDK 2.3.0.86 arm64 (github.com/orbbec/OpenNI_SDK releases) in
+  `~/intake/openni/sdk/libs`. Called straight through ctypes (`station/depth.py`): the `openni`
+  pip wrapper corrupts memory there (malloc crash within ~300 frames); ctypes ran 3000 frames clean.
+- Never use the Orbbec ROS driver next to the station: it takes the color camera too (/dev/video* vanish).
+- Depth 640x480 @ 30 fps, 10 frames averaged per scan = 0.42 s. Depth edges land on the color
+  image within a few px with the laptop calibration.
+- Live check, Mary's lunch: same plate scanned twice -> 0-2% apart (area and depth). Chicken piece
+  removed -> area 43%, depth 48%. Pasta / edamame taken off the top -> area 1-5%, depth 21-35%.
+
 ### To do
 - Height test: object of known thickness (deck of cards ~18 mm) on the plate.
 - Volume test: measured box vs camera volume (target within ~10%).
