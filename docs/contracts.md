@@ -83,6 +83,10 @@ Sent once per scan (before **and** after). JSON body:
 - `chart_bin` = `total_pct_eaten` rounded to the nearest of 0/25/50/75/100.
 - `kcal` / `protein_g` per item = `pct_eaten / 100 * portion value` from profiles.
 - `scan_id` is unique; the dashboard ignores a repeated `scan_id` (the station retries).
+- `replaces` (optional): the `scan_id` this scan redoes (staff pressed REDO LAST). The dashboard
+  drops the replaced scan everywhere. Same phase as the one it replaces.
+- Phases cycle per resident + meal + day: before -> after -> before -> after. An `after` closes
+  the plate; the next scan is a new `before` (second plate).
 - Response: `200 {"ok": true}`.
 
 ## 3. `config/profiles.json` (shared by station and dashboard)

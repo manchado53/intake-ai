@@ -53,16 +53,27 @@ class Store:
                        (body["scan_id"], body["time"], date, body.get("resident_id"), body.get("meal"),
                         body.get("phase"), body.get("status"), json.dumps(fracs or {}), json.dumps(body)))
 
-    def open_before(self, resident_id, meal, date):
-        """Latest ok "before" for this resident + meal + date, as {name: area_frac}, or None.
-
-        Stays open after an "after": a re-scan of the same plate is compared to the same before.
-        """
+    def last_scan(self, resident_id, meal, date, skip=None):
+        """Newest ok scan for this resident + meal + date (not `skip`), as a dict, or None."""
         with self.lock, self._db() as db:
-            row = db.execute("SELECT fracs FROM scans WHERE resident_id=? AND meal=? AND date=? "
-                             "AND phase='before' AND status='ok' ORDER BY time DESC LIMIT 1",
-                             (resident_id, meal, date)).fetchone()
-        return json.loads(row["fracs"]) if row else None
+            row = db.execute("SELECT scan_id, phase, fracs FROM scans WHERE resident_id=? AND meal=? AND date=? "
+                             "AND status='ok' AND scan_id IS NOT ? ORDER BY time DESC, rowid DESC LIMIT 1",
+                             (resident_id, meal, date, skip)).fetchone()
+        return dict(row) if row else None
+
+    def open_before(self, resident_id, meal, date, skip=None):
+        """The open "before" for this resident + meal + date, as {name: area_frac}, or None.
+
+        Open = the newest ok scan is a before. An "after" closes it, so the next scan is a new
+        before (second plate): before -> after -> before -> after.
+        """
+        last = self.last_scan(resident_id, meal, date, skip)
+        return json.loads(last["fracs"]) if last and last["phase"] == "before" else None
+
+    def void_scan(self, scan_id):
+        """Throw a scan away (REDO): it stops counting as the open before / last scan."""
+        with self.lock, self._db() as db:
+            db.execute("UPDATE scans SET status='void' WHERE scan_id=?", (scan_id,))
 
     def save_picture(self, resident_id, meal, date, phase, jpg):
         """Latest annotated picture per resident + meal + date + phase (for the side-by-side screen)."""

@@ -32,6 +32,10 @@
     background: var(--ink); border: 0; padding: 1.6vh 3vw; cursor: pointer; }
   #scan:hover { background: #000; }
   #scan:active { transform: scale(.97); }
+  #redo { display: none; font: 500 clamp(12px, 1.4vw, 22px) var(--mono); letter-spacing: .1em; color: inherit;
+    background: transparent; border: 1px solid currentColor; padding: 1vh 1.4vw; cursor: pointer; opacity: .8; }
+  #redo:hover { opacity: 1; }
+  .view.off { display: none; }
   #views { display: flex; gap: 1.6vw; flex: 1; min-height: 0; }
   .view { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 1.2vh 1vw;
     background:
@@ -76,12 +80,13 @@
 </svg></span></div>
   <div id="status">
     <div id="words"><div id="text">Starting…</div><div id="sub"></div></div>
+    <button id="redo" type="button" title="Throw away the last scan for this card and take it again (R)">REDO LAST</button>
     <button id="scan" type="button">SCAN</button>
   </div>
   <div id="views">
     <div class="view"><h2>Camera</h2><img id="live" src="/video" alt="live camera"></div>
-    <div class="view"><h2>Before</h2><img id="before" src="/before.jpg" alt="before scan"></div>
-    <div class="view"><h2>After</h2><img id="after" src="/after.jpg" alt="after scan"></div>
+    <div class="view off" id="vbefore"><h2>Before</h2><img id="before" src="/before.jpg" alt="before scan"></div>
+    <div class="view off" id="vafter"><h2>After</h2><img id="after" src="/after.jpg" alt="after scan"></div>
   </div>
   <div id="items"></div>
   <div id="foot"><span><b>Intake.ai</b> · kitchen station · Roboflow Inference on Jetson Orin</span><span id="meta"></span></div>
@@ -97,11 +102,14 @@ function paint(color) {
   el.style.color = fg;
 }
 async function scan() { await fetch('/scan', {method: 'POST'}); }
+async function redo() { await fetch('/redo', {method: 'POST'}); }
 document.getElementById('scan').addEventListener('click', scan);
+document.getElementById('redo').addEventListener('click', redo);
 document.addEventListener('keydown', e => {
   if ((e.code === 'Space' || e.code === 'Enter') && document.getElementById('scan').style.display !== 'none') {
     e.preventDefault(); scan();
   }
+  if (e.code === 'KeyR' && document.getElementById('redo').style.display !== 'none') redo();
 });
 async function poll() {
   try {
@@ -109,7 +117,13 @@ async function poll() {
     paint(s.color);
     document.getElementById('text').textContent = s.text;
     document.getElementById('sub').textContent = s.sub || '';
-    document.getElementById('scan').style.display = s.kind === 'ready' ? 'block' : 'none';
+    const btn = document.getElementById('scan');
+    btn.style.display = s.kind === 'ready' ? 'block' : 'none';
+    btn.textContent = s.next === 'after' ? 'SCAN AFTER' : 'SCAN BEFORE';
+    document.getElementById('redo').style.display = s.can_redo && s.kind !== 'busy' ? 'block' : 'none';
+    // only pictures that exist: BEFORE once there is one, AFTER only next to its BEFORE
+    for (const p of ['before', 'after'])
+      document.getElementById('v' + p).classList.toggle('off', !(s.panels || []).includes(p));
     document.getElementById('meta').textContent =
       (s.outbox_pending ? s.outbox_pending + ' waiting to send · ' : 'all sent · ') + s.time;
     if (s.seq !== lastSeq) {

@@ -32,7 +32,7 @@ learn. Read the latest plan before building, and don't treat design choices belo
 | `docs/contracts.md` | The 3 JSON shapes the pieces share: Workflow `estimate`, station -> dashboard POST, `profiles.json`. Change it first, then the code |
 | `config/profiles.json` | Fake residents, today's menu per meal, portion kcal/protein, meal times |
 | `workflow/` | Roboflow Workflow `intake-plate`: spec JSON, `intake_estimator.py` (custom block code: area math, CLIP names, QR), `build_spec.py` pastes it into the spec |
-| `station/` | Kitchen station: camera -> QR -> SCAN button -> Workflow -> before/after % (`intake.py`) -> `station.db` -> POST; `screen.html` = staff screen (camera / before / after) |
+| `station/` | Kitchen station: camera -> QR -> welcome + SCAN / REDO LAST -> Workflow -> before/after cycle + % (`intake.py`) -> `station.db` -> POST; `screen.html` = staff screen (camera / before / after) |
 | `app/` | Dietitian dashboard: FastAPI `/api/scan` (`server.py`) + Streamlit "Today" screen (`dashboard.py`), alert rule (`alerts.py`), QR cards, seed data |
 | `deploy/orin/` | Scripts that live in `~/intake` on the Orin: start the station, kiosk window, Workflow timing |
 | `eval/` | `pct_vs_scale.py` (% eaten vs kitchen scale through the real Workflow), `depth_vs_area.py` |

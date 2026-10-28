@@ -36,6 +36,7 @@ class Scan(BaseModel):
     kcal: Optional[float] = None
     protein_g: Optional[float] = None
     annotated_jpg_b64: Optional[str] = None
+    replaces: Optional[str] = None  # scan_id this one redoes (station REDO LAST)
 
 
 def create_app(db: str | None = None) -> FastAPI:
