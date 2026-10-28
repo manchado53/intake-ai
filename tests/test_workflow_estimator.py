@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workflow"))
-from intake_estimator import clip_pick, crop_name, estimate, join_sims, menu_chunks, read_qr  # noqa: E402
+from intake_estimator import clip_pick, crop_name, estimate  # noqa: E402
 
 H, W = 200, 300
 
@@ -77,32 +77,5 @@ def test_clip_pick_softmax():
     assert p == pytest.approx(0.5)
 
 
-MENU9 = ["white fish", "pasta", "carrots", "pork chop", "rice", "green beans",
-         "chicken", "mashed potatoes", "mixed vegetables"]
-
-
-def test_menu_chunks_split_and_join():
-    head, tail = menu_chunks(MENU9)
-    assert head == MENU9[:8] and tail == ["mixed vegetables"]
-    assert join_sims([0.1] * 8, [0.9], 9)[-1] == 0.9
-    head, tail = menu_chunks(MENU9[:3])
-    assert head == MENU9[:3] and tail == ["white fish"]  # dummy, never empty
-    assert join_sims([0.1, 0.2, 0.3], [0.9], 3) == [0.1, 0.2, 0.3]
-
-
-def test_crop_name_uses_tail():
-    assert crop_name(None, [0.20] * 8, [0.30], MENU9) == {"name": "mixed vegetables"}
-
-
-def test_read_qr():
-    import cv2
-    import qrcode
-    qr = qrcode.QRCode(border=4)
-    qr.add_data("R01")
-    qr.make(fit=True)
-    card = np.array(qr.make_image().convert("L"))
-    card = cv2.resize(card, (116, 116), interpolation=cv2.INTER_NEAREST)
-    img = np.full((240, 320, 3), 90, np.uint8)
-    img[60:176, 100:216] = card[..., None]
-    assert read_qr(img) == "R01"
-    assert read_qr(np.full((240, 320, 3), 90, np.uint8)) is None
+def test_crop_name_picks_best_word():
+    assert crop_name(None, [0.20, 0.31, 0.22], ["white fish", "pasta", "carrots"]) == {"name": "pasta"}

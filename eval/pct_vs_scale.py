@@ -68,7 +68,7 @@ def run_workflow(client, spec, path, menu, cache):
         return json.loads(cache.read_text())
     out = client.run_workflow(workspace_name="manchado53", specification=spec,
                               images={"image": cv2.imread(str(path))}, parameters={"menu": menu})
-    est = {"qr": out[0].get("qr"), "estimate": out[0]["estimate"]}
+    est = {"estimate": out[0]["estimate"]}
     cache.write_text(json.dumps(est))
     return est
 

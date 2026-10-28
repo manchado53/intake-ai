@@ -139,3 +139,16 @@ def test_failed_redo_keeps_old_scan(tmp_path):
     b = sc.scan(frame, local_qr="R01", redo=True)
     assert b["status"] == "error" and "replaces" not in b
     assert sc.store.last_scan("R01", "lunch", sc_date())["scan_id"] == first["scan_id"]
+
+
+def test_workflow_gets_only_residents_items_and_skips_unknown_cards(tmp_path):
+    sc, client, screen, menu = make(tmp_path)
+    seen = []
+    run = client.run
+    client.run = lambda frame, m, hint=None: seen.append(list(m)) or run(frame, m, hint)
+    frame = np.zeros((48, 64, 3), np.uint8)
+    assert sc.scan(frame, local_qr="NOPE")["status"] == "unknown_resident"
+    assert sc.scan(frame, local_qr=None)["status"] == "no_qr"
+    assert seen == []  # no card / unknown card: the Workflow never runs
+    sc.scan(frame, local_qr="R01")
+    assert seen == [menu] and len(menu) <= 8

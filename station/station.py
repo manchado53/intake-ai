@@ -5,7 +5,7 @@
     .venv-app/Scripts/python station/station.py --source clip.mp4 --meal lunch --port 8080
 
 Screen for the robot / Zoom share: http://localhost:8080 (fullscreen the browser).
-Each scan: Workflow -> resident lookup -> before/after via station.db -> POST /api/scan
+Each scan: station reads the QR -> resident's items -> Workflow -> before/after via station.db -> POST /api/scan
 through the outbox (a down dashboard never blocks scanning). Config: see workflow_client.py.
 """
 import argparse
@@ -71,7 +71,6 @@ class Scanner:
         self.cfg, self.profiles, self.client, self.store, self.screen = cfg, profiles, client, store, screen
         self.meal_override, self.send_photo = meal_override, send_photo
         self.residents = {r["id"]: r for r in profiles["residents"]}
-        self.menu = list(profiles["menu_items"])
 
     def scan(self, frame, hint=None, local_qr=None, redo=False):
         """One scan. redo=True: replace this card's last ok scan (same phase); the old one is
@@ -84,39 +83,36 @@ class Scanner:
                 "items": [], "total_pct_eaten": None, "chart_bin": None, "kcal": None, "protein_g": None,
                 "annotated_jpg_b64": None}
         fracs = None
-        # QR already read on the station -> CLIP picks only among this resident's items
-        # (fewer look-alikes, e.g. fish vs mashed potatoes); unknown card -> the whole menu
-        plan_hint = self.residents.get(local_qr, {}).get("meals", {}).get(meal) if meal else None
-        try:
-            res = self.client.run(frame, plan_hint or self.menu, hint=hint)
-        except Exception as ex:
-            print(f"workflow error: {type(ex).__name__}: {ex}")
-            res = None
-        if res is None:
-            body["status"] = "error"
-            body["review_reasons"] = ["workflow_error"]
-            res = {"qr": local_qr, "estimate": {}, "annotated_image": None}
-        est = res.get("estimate") or {}
-        ann = res.get("annotated_image")
-        body["annotated_jpg_b64"] = (ann or jpeg_b64(frame)) if self.send_photo else None
-        qr = res.get("qr") or local_qr
-        body["resident_id"] = qr
-        body["needs_review"] = bool(est.get("needs_review"))
-        body["review_reasons"] = body["review_reasons"] + list(est.get("review_reasons") or [])
+        # The station reads the card; the Workflow only measures. It runs once we know who and
+        # what they were served, with just those items as CLIP's choices (fewer look-alikes).
+        qr = local_qr
         person = self.residents.get(qr)
         plan = (person or {}).get("meals", {}).get(meal) if meal else None
+        res = None
+        if plan:
+            try:
+                res = self.client.run(frame, plan, hint=hint)
+            except Exception as ex:
+                print(f"workflow error: {type(ex).__name__}: {ex}")
+        est = (res or {}).get("estimate") or {}
+        ann = (res or {}).get("annotated_image")
+        body["annotated_jpg_b64"] = (ann or jpeg_b64(frame)) if self.send_photo else None
+        body["resident_id"] = qr
+        body["needs_review"] = bool(est.get("needs_review"))
+        body["review_reasons"] = list(est.get("review_reasons") or [])
         old = self.store.last_scan(qr, meal, date) if redo and qr else None
         skip = old["scan_id"] if old else None
 
-        if body["status"] == "error":
-            pass
-        elif not qr:
+        if not qr:
             body["status"] = "no_qr"
         elif person is None:
             body["status"] = "unknown_resident"
         elif not plan:
             body["status"] = "error"
             body["review_reasons"].append("no_meal_plan")
+        elif res is None:
+            body["status"] = "error"
+            body["review_reasons"].append("workflow_error")
         elif not est.get("plate_found"):
             body["status"] = "no_plate"
         else:
