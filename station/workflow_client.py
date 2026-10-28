@@ -1,7 +1,8 @@
 """Calls the `intake-plate` Workflow (real) or makes up a plausible answer (fake).
 
 Both return one contract-1 dict (docs/contracts.md section 1):
-    {"estimate": {...}, "annotated_image": <base64 jpeg> | None}
+    {"estimate": {...}, "annotated_image": <base64 jpeg> | None, "foods": ..., "plate": ...}
+(foods / plate = mask polygons for depth; the fake leaves them out, so it stays area-only)
 
 Config comes from env vars, then the repo's .env (the main checkout's .env too, when running
 from a worktree): INFERENCE_URL, WORKFLOW_ID, ROBOFLOW_API_KEY, DASHBOARD_URL, STATION_ID, CAMERA, WORKFLOW_SPEC (inline spec path).
@@ -51,7 +52,8 @@ def normalize(result):
     if isinstance(est, str):
         est = json.loads(est)
     return {"estimate": est,
-            "annotated_image": annotated_b64(result.get("annotated_image"))}
+            "annotated_image": annotated_b64(result.get("annotated_image")),
+            "foods": result.get("foods"), "plate": result.get("plate")}  # masks, for depth
 
 
 class WorkflowClient:

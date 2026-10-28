@@ -60,27 +60,42 @@ def before_items(before):
              "kcal": None, "protein_g": None} for n, f in before.items() if f > 0]
 
 
-def compare(before, after, menu_items):
+def _mean(a, d):
+    """Average of the area % and the depth %; area alone when depth is missing."""
+    return a if d is None or a is None else (a + d) / 2
+
+
+def compare(before, after, menu_items, before_vol=None, after_vol=None):
     """Per-item % eaten + nutrition for an "after" scan.
 
     before / after: {name: area_frac}; an item missing from `after` counts as 0 (all eaten).
+    before_vol / after_vol: {name: volume} from depth, or None. With both, % eaten = mean of the
+    area % and the depth % (area errs low on piles, depth errs high; the mean cancels most of both,
+    docs/experiments/2026-10-28-depth-plate-shape.md).
     Returns {"items": [...], "total_pct_eaten", "chart_bin", "kcal", "protein_g"}.
     """
-    items, sum_b, sum_a, kcal, prot = [], 0.0, 0.0, 0.0, 0.0
+    use_vol = before_vol is not None and after_vol is not None
+    items, sum_b, sum_a, sum_bv, sum_av, kcal, prot = [], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     for name, b in before.items():
         a = after.get(name, 0.0) or 0.0
-        p = pct_eaten(b, a)
-        if p is None:
+        pa = pct_eaten(b, a)
+        if pa is None:
             continue
-        p = round(p, 1)  # nutrition from the reported %, so the numbers on screen add up
+        bv, av = (before_vol.get(name), after_vol.get(name, 0.0) or 0.0) if use_vol else (None, None)
+        pd = pct_eaten(bv, av) if use_vol else None
+        p = round(_mean(pa, pd), 1)  # nutrition from the reported %, so the numbers on screen add up
         info = menu_items.get(name, {})
         k = p / 100 * info.get("kcal", 0)
         g = p / 100 * info.get("protein_g", 0)
         items.append({"name": name, "before_frac": round(b, 4), "after_frac": round(a, 4),
-                      "pct_eaten": round(p, 1), "kcal": round(k, 1), "protein_g": round(g, 1)})
+                      "pct_eaten": p, "pct_area": round(pa, 1),
+                      "pct_depth": None if pd is None else round(pd, 1),
+                      "kcal": round(k, 1), "protein_g": round(g, 1)})
         sum_b, sum_a, kcal, prot = sum_b + b, sum_a + a, kcal + k, prot + g
-    total = pct_eaten(sum_b, sum_a)
+        if pd is not None:
+            sum_bv, sum_av = sum_bv + bv, sum_av + av
     # same clip rule on the sums; per-item after > before can't push the total below 0
+    total = _mean(pct_eaten(sum_b, sum_a), pct_eaten(sum_bv, sum_av) if use_vol else None)
     return {"items": items,
             "total_pct_eaten": None if total is None else round(total, 1),
             "chart_bin": chart_bin(total),
