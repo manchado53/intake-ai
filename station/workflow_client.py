@@ -1,7 +1,7 @@
 """Calls the `intake-plate` Workflow (real) or makes up a plausible answer (fake).
 
 Both return one contract-1 dict (docs/contracts.md section 1):
-    {"qr": "R01" | None, "estimate": {...}, "annotated_image": <base64 jpeg> | None}
+    {"estimate": {...}, "annotated_image": <base64 jpeg> | None}
 
 Config comes from env vars, then the repo's .env (the main checkout's .env too, when running
 from a worktree): INFERENCE_URL, WORKFLOW_ID, ROBOFLOW_API_KEY, DASHBOARD_URL, STATION_ID, CAMERA, WORKFLOW_SPEC (inline spec path).
@@ -50,7 +50,7 @@ def normalize(result):
     est = result.get("estimate") or {}
     if isinstance(est, str):
         est = json.loads(est)
-    return {"qr": result.get("qr") or None, "estimate": est,
+    return {"estimate": est,
             "annotated_image": annotated_b64(result.get("annotated_image"))}
 
 
@@ -129,7 +129,7 @@ def color_fracs(frame, plate):
 
 
 class FakeWorkflowClient:
-    """Contract-1 answers without a model: local QR decode + canned or color-threshold fractions."""
+    """Contract-1 answers without a model: canned or color-threshold fractions (QR only to find the plate)."""
 
     def run(self, frame, menu, hint=None):
         qr, pts = detect_qr(frame)
@@ -151,7 +151,7 @@ class FakeWorkflowClient:
                "food_frac_total": round(sum(i["area_frac"] for i in items), 3),
                "needs_review": plate is None, "review_reasons": [] if plate is not None else ["no_plate"],
                "items": items}
-        return {"qr": qr, "estimate": est, "annotated_image": jpeg_b64(self._draw(frame, plate, items, qr))}
+        return {"estimate": est, "annotated_image": jpeg_b64(self._draw(frame, plate, items, qr))}
 
     @staticmethod
     def _draw(frame, plate, items, qr):

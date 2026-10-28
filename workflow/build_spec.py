@@ -16,7 +16,7 @@ def build():
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
     code = SRC.read_text(encoding="utf-8")
     in_sync = True
-    for block in spec["dynamic_blocks_definitions"]:  # MenuSplit + IntakeEstimator share the file
+    for block in spec["dynamic_blocks_definitions"]:  # CropName + IntakeEstimator share the file
         in_sync &= block["code"]["run_function_code"] == code
         block["code"]["run_function_code"] = code
     return spec, in_sync

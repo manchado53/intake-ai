@@ -19,7 +19,6 @@ Percentages are 0-100 floats. Times are ISO 8601 local time. Meals: `breakfast |
 
 ```json
 {
-  "qr": "R01",
   "estimate": {
     "plate_found": true,
     "plate_area_px": 106703,
@@ -35,7 +34,6 @@ Percentages are 0-100 floats. Times are ISO 8601 local time. Meals: `breakfast |
   "annotated_image": {"type": "base64", "value": "<jpeg base64>"}
 }
 ```
-- `qr`: decoded text of the QR card, or `null` if none was found. The card holds only the resident id.
 - `items`: one entry per **food blob**. Several blobs can share a name (two fish pieces); the station
   sums them per name. `name` is the best menu word from CLIP among `menu`. `centroid` is
   normalized to the image (x, y in 0..1).
@@ -43,7 +41,10 @@ Percentages are 0-100 floats. Times are ISO 8601 local time. Meals: `breakfast |
   the best word among *this resident's* items when CLIP's overall top word is not on their list.
 - `needs_review` is true if any of: no plate, a blob with `det_conf < 0.5`, a blob with
   `clip_score < 0.5`. `review_reasons` lists short codes: `no_plate`, `low_det_conf`, `low_clip`.
-- Inputs: `image`, `menu` (list of strings: every menu word served today), `confidence` (default 0.5).
+- Inputs: `image`, `menu` (list of strings: the items this resident was served this meal, at most
+  8: hosted CLIP fails above 8 prompts), `confidence` (default 0.5).
+- The Workflow does not read the QR card: the station reads it, looks up the resident, and only
+  then runs the Workflow with that resident's items.
 - The exact `annotated_image` key layout depends on the visualization block; the station must accept
   both `{"type":"base64","value":...}` and a bare base64 string.
 

@@ -1,20 +1,19 @@
 """Intake estimator: food masks + plate mask -> the `estimate` dict of docs/contracts.md (section 1).
 
-No network. `workflow/build_spec.py` pastes this whole file into the Workflow's three Custom Python
-blocks (`split_menu` = MenuSplit, `crop_name` = CropName, `run` = IntakeEstimator), so keep it self-contained
-(numpy + cv2 only, both preloaded in Roboflow's Custom Python sandbox).
+No network. `workflow/build_spec.py` pastes this whole file into the Workflow's two Custom Python
+blocks (`crop_name` = CropName, `run` = IntakeEstimator), so keep it self-contained
+(numpy only, preloaded in Roboflow's Custom Python sandbox).
+
+The menu is one resident's planned items for this meal (the station reads the QR card and sends
+them), at most 8 words: hosted CLIP compare returns 500 above 8 prompts (measured 2026-10-27).
 
 Test: .venv-app/Scripts/python -m pytest tests/test_workflow_estimator.py
 """
-import cv2
 import numpy as np
 
 DET_CONF_MIN = 0.5
 CLIP_SCORE_MIN = 0.5
 CLIP_LOGIT_SCALE = 100.0  # CLIP's own logit scale; turns raw cosine sims into a softmax over the menu
-# Hosted CLIP compare returns 500 for more than 8 prompts (measured 2026-10-27), so the menu goes
-# to CLIP in two chunks of <= 8; menus up to 16 words are supported.
-CLIP_MAX_PROMPTS = 8
 
 
 def clip_probs(similarities, menu):
@@ -83,67 +82,25 @@ def estimate(plate_masks, foods):
     }
 
 
-def read_qr(bgr):
-    """Decoded text of the QR card in a BGR image, or None.
-    Single-code detector first: the multi-code one (used by roboflow_core/qr_code_detector@v1)
-    misses clean cards and the block crashes on images without a code."""
-    det = cv2.QRCodeDetector()
-    try:
-        text, _, _ = det.detectAndDecode(bgr)
-        if text:
-            return str(text)
-        ok, texts, _, _ = det.detectAndDecodeMulti(bgr)
-        if ok and texts:
-            return next((str(t) for t in texts if t), None)
-    except cv2.error:
-        pass
-    return None
-
-
-def menu_chunks(menu):
-    """Menu -> (head, tail) prompt lists for the two CLIP steps; tail is never empty
-    (CLIP rejects an empty class list), its sims are dropped when the menu fits in head."""
-    menu = [str(m) for m in menu]
-    head = menu[:CLIP_MAX_PROMPTS]
-    tail = menu[CLIP_MAX_PROMPTS:2 * CLIP_MAX_PROMPTS] or menu[:1]
-    return head, tail
-
-
-def join_sims(head_sims, tail_sims, n_menu):
-    sims = list(head_sims)
-    if n_menu > CLIP_MAX_PROMPTS:
-        sims += list(tail_sims)
-    return sims[:n_menu]
-
-
-def split_menu(self, menu):
-    """Custom Python block MenuSplit."""
-    head, tail = menu_chunks(menu)
-    return {"head": head, "tail": tail}
-
-
-def crop_name(self, sims_head, sims_tail, menu):
+def crop_name(self, sims, menu):
     """Custom Python block CropName: one crop's CLIP sims -> menu name (feeds the label block)."""
     menu = [str(m) for m in menu]
-    sims = join_sims(sims_head or [], sims_tail or [], len(menu))
-    return {"name": clip_pick(sims, menu[:len(sims)])[0]}
+    return {"name": clip_pick(list(sims or []), menu)[0]}
 
 
-def run(self, image, predictions, foods, sims_head, sims_tail, menu):
+def run(self, predictions, foods, sims, menu):
     """Custom Python block IntakeEstimator.
     predictions: seg model sv.Detections (plate + food-item); foods: the food-item subset, in the
-    same order as the CLIP crops; sims_head / sims_tail: per-crop raw CLIP sims vs menu_chunks()."""
+    same order as the CLIP crops; sims: per-crop raw CLIP cosine sims vs the menu words."""
     menu = [str(m) for m in menu]
     names = predictions.data.get("class_name", [])
     plate_masks = [predictions.mask[i] for i in range(len(predictions))
                    if names[i] == "plate" and predictions.mask is not None]
-    sh = list(sims_head) if sims_head is not None else []
-    st = list(sims_tail) if sims_tail is not None else []
+    per_crop = list(sims) if sims is not None else []
     food_list = []
     for i in range(len(foods)):
-        sims = join_sims(sh[i] if i < len(sh) else [], st[i] if i < len(st) else [], len(menu))
-        probs = clip_probs(sims, menu[:len(sims)])
-        name, score = clip_pick(sims, menu[:len(sims)])
+        s = list(per_crop[i]) if i < len(per_crop) else []
+        name, score = clip_pick(s, menu[:len(s)])
         food_list.append({"mask": foods.mask[i], "name": name, "clip_score": score,
-                          "det_conf": float(foods.confidence[i]), "scores": probs})
-    return {"estimate": estimate(plate_masks, food_list), "qr": read_qr(image.numpy_image)}
+                          "det_conf": float(foods.confidence[i]), "scores": clip_probs(s, menu[:len(s)])})
+    return {"estimate": estimate(plate_masks, food_list)}
