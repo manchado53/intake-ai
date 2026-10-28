@@ -111,7 +111,7 @@ FOOD_GROUP = {  # colors the per-food pieces of a meal bar
     **dict.fromkeys(["pasta", "rice", "mashed potatoes", "toast", "oatmeal"], "starch"),
     **dict.fromkeys(["carrots", "green beans", "mixed vegetables", "fruit cup"], "veg / fruit"),
 }
-GROUP_COLORS = {"protein": "#6F3FD8", "starch": "#C29AF6", "veg / fruit": "#2E9E6B", "other": "#94A3B8"}
+GROUP_COLORS = {"protein": "#4B2A9A", "starch": "#8B5CF6", "veg / fruit": "#C9B3F7", "other": "#94A3B8"}  # app purples, dark -> light
 
 
 def trend_by_food(scans, rid, last=10, height=260):

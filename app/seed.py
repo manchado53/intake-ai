@@ -7,12 +7,14 @@ Planted patterns (so every dashboard insight has something to show before any li
 - Kitchen: pork chop and green beans come back the most.
 Everyone else eats 60-100%.
 
-Two of yesterday's dinners use REAL recorded meals (photos + hosted Workflow output in
-data/raw/demo_photos/, made with workflow/run_hosted.py; skipped if the folder is missing):
-- R03 Rosa M.: meal_03 (fish, pasta, carrots), all foods named right.
-- R01 Mary R.: meal_05 (chicken, mashed potatoes, mixed vegetables). CLIP named the chicken
-  "mashed potatoes" in the BEFORE photo, so it is marked for review ("missing_item: chicken").
-  That rule lives here only; the station does not flag a missing menu item yet.
+Three of today's lunches (before the demo, so they top the kitchen feed) use REAL recorded meals
+(photos + hosted Workflow output in data/raw/demo_photos/, made with workflow/run_hosted.py;
+skipped if the folder is missing). Mary R. is left alone for the live scan.
+- R05 Helen B.: meal_03 (fish, pasta, carrots), all foods named right.
+- R03 Rosa M.: meal_05 (chicken, mashed potatoes, mixed vegetables). CLIP named the chicken
+  "mashed potatoes" in the BEFORE photo -> review ("missing_item: chicken").
+- R06 Frank P.: meal_02 (pork chop, rice, green beans). Rice named "green beans" -> review.
+The missing_item rule lives here only; the station does not flag a missing menu item yet.
 The % comes from station/intake.py, the same math the station runs.
 
 Idempotent: fixed scan_ids ("seed-..."), INSERT OR IGNORE.
@@ -36,7 +38,8 @@ MEAT = {"pork chop", "chicken", "white fish", "scrambled eggs"}
 PROTEIN = MEAT | {"yogurt"}
 KITCHEN_LEFT = {"pork chop": (40, 85), "green beans": (30, 80)}  # % eaten range for everyone else
 PHOTOS = Path(__file__).resolve().parent.parent / "data" / "raw" / "demo_photos"
-REAL = {("R03", "dinner"): "meal_03", ("R01", "dinner"): "meal_05"}  # yesterday only
+REAL = {"R05": "meal_03", "R03": "meal_05", "R06": "meal_02"}  # today's lunch
+REAL_TIMES = ("11:15:00", "11:45:00")  # before, after
 
 
 def chart_bin(pct: float) -> int:
@@ -57,7 +60,7 @@ def item_pct(rng, rid, name, i, n, low):
 
 def real_meal(r, day, meal, menu_items):
     """Before + after scans from a recorded meal (s0 -> s5), or None if not planted / no photos."""
-    src = PHOTOS / REAL.get((r["id"], meal), "-")
+    src = PHOTOS / REAL.get(r["id"], "-")
     if not (src / "s0_1_color.json").exists():
         return None
     plan = r["meals"][meal]
@@ -72,11 +75,11 @@ def real_meal(r, day, meal, menu_items):
     base = {"station_id": "synthetic-seed", "resident_id": r["id"], "meal": meal, "status": "ok",
             "needs_review": bool(reasons), "review_reasons": reasons, "synthetic": True}
     before = {**base, "scan_id": f"seed-{day.isoformat()}-{r['id']}-{meal}-before", "phase": "before",
-              "time": f"{day.isoformat()}T17:00:00", "items": before_items(shots["before"][0]),
+              "time": f"{day.isoformat()}T{REAL_TIMES[0]}", "items": before_items(shots["before"][0]),
               "total_pct_eaten": None, "chart_bin": None, "kcal": None, "protein_g": None,
               "annotated_jpg_b64": shots["before"][2], "needs_review": False, "review_reasons": []}  # one card
     after = {**base, "scan_id": f"seed-{day.isoformat()}-{r['id']}-{meal}-after", "phase": "after",
-             "time": f"{day.isoformat()}T{MEAL_HOUR[meal]}:00", "annotated_jpg_b64": shots["after"][2],
+             "time": f"{day.isoformat()}T{REAL_TIMES[1]}", "annotated_jpg_b64": shots["after"][2],
              **compare(shots["before"][0], shots["after"][0], menu_items)}
     return [before, after]
 
@@ -92,10 +95,6 @@ def build_scans(profiles: dict) -> list[dict]:
         if "breakfast" in r["meals"]:
             slots.append((today, "breakfast"))
         for i, (day, meal) in enumerate(slots):
-            real = real_meal(r, day, meal, menu) if day == today - timedelta(days=1) else None
-            if real:
-                scans += real
-                continue
             low = r["id"] == "R02" and i >= len(slots) - 3
             items, before_sum, after_sum = [], 0.0, 0.0
             for name in r["meals"][meal]:
@@ -119,6 +118,7 @@ def build_scans(profiles: dict) -> list[dict]:
                 "protein_g": round(sum(x["protein_g"] for x in items), 1),
                 "annotated_jpg_b64": None, "synthetic": True,
             })
+        scans += real_meal(r, today, "lunch", menu) or []
     return scans
 
 
