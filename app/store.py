@@ -55,7 +55,8 @@ def insert_scan(con: sqlite3.Connection, body: dict, synthetic: bool = False) ->
 
 
 def list_scans(con: sqlite3.Connection, limit: int | None = None) -> list[dict]:
-    """Scans newest first, each as its contract-2 dict plus `synthetic`."""
+    """Scans newest first, each as its contract-2 dict plus `synthetic`. A scan that a later one
+    `replaces` (station REDO) is left out, so every view uses only the retake."""
     sql = "SELECT body, synthetic FROM scans ORDER BY time DESC, received_at DESC"
     rows = con.execute(sql + (f" LIMIT {int(limit)}" if limit else "")).fetchall()
     out = []
@@ -63,7 +64,8 @@ def list_scans(con: sqlite3.Connection, limit: int | None = None) -> list[dict]:
         d = json.loads(body)
         d["synthetic"] = bool(synthetic)
         out.append(d)
-    return out
+    replaced = {d.get("replaces") for d in out}
+    return [d for d in out if d["scan_id"] not in replaced]
 
 
 def add_ack(con: sqlite3.Connection, key: str, action: str) -> None:

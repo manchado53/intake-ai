@@ -39,25 +39,30 @@ class Screen:
         self.lock = threading.Lock()
         self.live_jpg = None
         self.annotated_jpg = None
-        self.before_jpg = None  # open meal's BEFORE, shown next to its AFTER
+        self.before_jpg = None  # owner's BEFORE, then BEFORE + AFTER; kept until another card shows
         self.after_jpg = None
+        self.owner = None       # card the pictures belong to
+        self.can_redo = False   # owner has a scan REDO can replace
         self.scan_request = threading.Event()  # set by the SCAN button
+        self.redo_request = threading.Event()  # set by the REDO LAST button
         self.state = {}
         self.history = []
         self.since = 0.0
         self.set("idle", "Place plate + card", GREY)
 
-    def set(self, kind, text, color, sub="", items=None):
+    def set(self, kind, text, color, sub="", items=None, **extra):
         with self.lock:
             self.state = {"kind": kind, "text": text, "color": color, "sub": sub, "items": items or [],
                           "time": datetime.now().isoformat(timespec="seconds"),
-                          "seq": self.state.get("seq", 0) + 1}
+                          "seq": self.state.get("seq", 0) + 1, **extra}
             self.since = time.time()
             self.history = (self.history + [{"kind": kind, "text": text, "sub": sub}])[-30:]
 
     def get(self):
         with self.lock:
-            return dict(self.state, history=list(self.history), age_s=round(time.time() - self.since, 1))
+            return dict(self.state, history=list(self.history), age_s=round(time.time() - self.since, 1),
+                        panels=[p for p in ("before", "after") if getattr(self, p + "_jpg")],
+                        can_redo=self.can_redo)
 
 
 # --- one scan ----------------------------------------------------------------
@@ -68,7 +73,9 @@ class Scanner:
         self.residents = {r["id"]: r for r in profiles["residents"]}
         self.menu = list(profiles["menu_items"])
 
-    def scan(self, frame, hint=None, local_qr=None):
+    def scan(self, frame, hint=None, local_qr=None, redo=False):
+        """One scan. redo=True: replace this card's last ok scan (same phase); the old one is
+        voided only if the new one is ok, so a failed redo loses nothing."""
         now = datetime.now()
         date, t = now.date().isoformat(), now.isoformat(timespec="seconds")
         meal = current_meal(now, self.profiles["meal_times"], self.meal_override)
@@ -98,6 +105,8 @@ class Scanner:
         body["review_reasons"] = body["review_reasons"] + list(est.get("review_reasons") or [])
         person = self.residents.get(qr)
         plan = (person or {}).get("meals", {}).get(meal) if meal else None
+        old = self.store.last_scan(qr, meal, date) if redo and qr else None
+        skip = old["scan_id"] if old else None
 
         if body["status"] == "error":
             pass
@@ -114,7 +123,7 @@ class Scanner:
             fracs, reasons = group_items(est.get("items"), plan)
             body["review_reasons"] += reasons
             body["needs_review"] = body["needs_review"] or bool(reasons)
-            before = self.store.open_before(qr, meal, date)
+            before = self.store.open_before(qr, meal, date, skip=skip)
             if before is None:
                 body["items"] = before_items(fracs)
                 if not body["items"]:
@@ -125,7 +134,11 @@ class Scanner:
             else:
                 body["phase"] = "after"
                 body.update(compare(before, fracs, self.profiles["menu_items"]))
-        body["scan_id"] = f"{t}-{qr or 'noqr'}-{meal}-{body['phase']}"
+        # "-redo": a redo can land in the same second as the scan it replaces; never overwrite it
+        body["scan_id"] = f"{t}-{qr or 'noqr'}-{meal}-{body['phase']}" + ("-redo" if redo else "")
+        if old and body["status"] == "ok":
+            body["replaces"] = old["scan_id"]
+            self.store.void_scan(old["scan_id"])
 
         self.store.save_scan(body, date, fracs)
         self.store.enqueue(body)
@@ -138,6 +151,7 @@ class Scanner:
             before_pic = self.store.picture(qr, meal, date, "before")
             self.screen.before_jpg = before_pic
             self.screen.after_jpg = pic if body["phase"] == "after" else None
+            self.screen.owner, self.screen.can_redo = qr, True
         self._show(body, person)
         print(f"scan {body['scan_id']}: {body['status']} {body['phase']} "
               f"total={body['total_pct_eaten']} bin={body['chart_bin']} review={body['review_reasons']}")
@@ -162,7 +176,7 @@ class Scanner:
         color = AMBER if b["needs_review"] else GREEN
         if b["phase"] == "before":
             items = [{"name": i["name"], "pct": None} for i in b["items"]]
-            return s.set("before", f"{who} – BEFORE saved ✓", color, review, items)
+            return s.set("before", f"{who} – BEFORE saved ✓", color, review or "Bring the plate back after the meal", items)
         items = [{"name": i["name"], "pct": i["pct_eaten"]} for i in b["items"]]
         nutr = f"{b['kcal']:.0f} kcal, {b['protein_g']:.0f} g protein" if b["kcal"] is not None else ""
         sub = " · ".join(x for x in (who, nutr, review) if x)
@@ -170,18 +184,27 @@ class Scanner:
             return s.set("after", "AFTER: no change measured", AMBER, sub, items)
         return s.set("after", f"AFTER: ate {b['chart_bin']}% ✓", color, sub, items)
 
-    def ready_text(self, qr):
-        """Status line while a card is in view and the station waits for SCAN; also puts this
-        resident's BEFORE picture (if any) on screen so staff see what the AFTER compares to."""
+    def ready(self, qr):
+        """A card is in view and the station waits for SCAN: welcome + what the press will do.
+        Returns (text, sub, next_phase). A different card than the one on screen swaps the
+        pictures to this resident's: their waiting BEFORE, or nothing (next press = BEFORE)."""
         person = self.residents.get(qr)
-        if person is None:
-            return f"Card {qr} – press SCAN"
         meal = current_meal(datetime.now(), self.profiles["meal_times"], self.meal_override)
         date = datetime.now().date().isoformat()
-        has_before = bool(meal) and self.store.open_before(qr, meal, date) is not None
-        self.screen.before_jpg = self.store.picture(qr, meal, date, "before") if has_before else None
-        self.screen.after_jpg = None
-        return f"{person['name']} – {meal or 'no meal now'} {'AFTER' if has_before else 'BEFORE'}: press SCAN"
+        has_before = bool(person and meal) and self.store.open_before(qr, meal, date) is not None
+        nxt = "after" if has_before else "before"
+        if qr != self.screen.owner:
+            self.screen.before_jpg = self.store.picture(qr, meal, date, "before") if has_before else None
+            self.screen.after_jpg = None
+            self.screen.owner = qr
+            self.screen.can_redo = bool(person and meal) and self.store.last_scan(qr, meal, date) is not None
+        if person is None:
+            return f"Card {qr}", "Unknown card – press SCAN to try", nxt
+        if has_before:
+            sub = f"{meal} · BEFORE saved · press SCAN for AFTER"
+        else:
+            sub = f"{meal or 'no meal now'} · press SCAN for BEFORE"
+        return f"Welcome, {person['name']}", sub, nxt
 
 
 # --- sources -----------------------------------------------------------------
@@ -213,13 +236,13 @@ def run_live(src, scanner, screen, stop, auto=False):
     armed, cand, since, last_seen, last_check = True, None, 0.0, 0.0, 0.0
     busy = threading.Event()
 
-    def start_scan(f, q):
-        screen.set("busy", "Reading plate…", BLUE, f"card {q}")
+    def start_scan(f, q, redo=False):
+        screen.set("busy", "Redoing last scan…" if redo else "Reading plate…", BLUE, f"card {q}", card=q)
         busy.set()
 
         def work():
             try:
-                scanner.scan(f, local_qr=q)
+                scanner.scan(f, local_qr=q, redo=redo)
             finally:
                 busy.clear()
         threading.Thread(target=work, daemon=True).start()
@@ -236,13 +259,22 @@ def run_live(src, scanner, screen, stop, auto=False):
             time.sleep(frame_dt)
         if busy.is_set():
             screen.scan_request.clear()  # a press while reading doesn't queue a second scan
+            screen.redo_request.clear()
             continue
+        card_here = cand and now - last_seen <= GONE_S
         if screen.scan_request.is_set():
             screen.scan_request.clear()
-            if cand and now - last_seen <= GONE_S:
+            if card_here:
                 armed = False
                 start_scan(frame.copy(), cand)
                 continue
+        if screen.redo_request.is_set():
+            screen.redo_request.clear()
+            if card_here and cand == screen.owner:
+                armed = False
+                start_scan(frame.copy(), cand, redo=True)
+                continue
+            screen.set("error", "Show the card to redo", RED, "Put the plate + card back under the camera")
         if now - last_check < 0.2:
             continue
         last_check = now
@@ -258,8 +290,10 @@ def run_live(src, scanner, screen, stop, auto=False):
                     start_scan(frame.copy(), text)
                 elif armed and st["kind"] != "hold":
                     screen.set("hold", "Hold still…", BLUE, f"card {text}")
-            elif st["kind"] == "idle" or (st["kind"] == "ready" and st["sub"] != f"card {text}"):
-                screen.set("ready", scanner.ready_text(text), BLUE, f"card {text}")
+            elif (st["kind"] == "idle" or (st["kind"] == "ready" and st.get("card") != text)
+                  or (st["kind"] == "error" and st["age_s"] > RESULT_S / 2)):  # error: let them try again
+                words, sub, nxt = scanner.ready(text)
+                screen.set("ready", words, BLUE, sub, card=text, next=nxt)
         elif now - last_seen > GONE_S:
             armed, cand = True, None
             if st["kind"] in ("hold", "ready") or (st["kind"] not in ("idle", "busy") and st["age_s"] > RESULT_S):
@@ -319,6 +353,13 @@ def make_app(screen, store):
         if ready:
             screen.scan_request.set()
         return JSONResponse({"ok": ready})
+
+    @app.post("/redo")
+    def redo():
+        ok = screen.can_redo and screen.get()["kind"] != "busy"
+        if ok:
+            screen.redo_request.set()
+        return JSONResponse({"ok": ok})
 
     @app.get("/video")
     def video():
