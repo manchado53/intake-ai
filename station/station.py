@@ -7,6 +7,9 @@
 Screen for the robot / Zoom share: http://localhost:8080 (fullscreen the browser).
 Each scan: station reads the QR -> resident's items -> Workflow -> before/after via station.db -> POST /api/scan
 through the outbox (a down dashboard never blocks scanning). Config: see workflow_client.py.
+Depth (on by default, --no-depth = off): each scan also grabs a depth frame and % eaten = mean of the
+area % and the depth %, once EMPTY PLATE has saved the plate's shape (plate_profile.json). No depth
+camera or no saved shape -> area only, as before.
 """
 import argparse
 import base64
@@ -22,6 +25,7 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import depth as dep  # noqa: E402
 from intake import before_items, compare, current_meal, group_items  # noqa: E402
 from store import Store  # noqa: E402
 from workflow_client import ROOT, jpeg_b64, load_config, make_client, read_qr  # noqa: E402
@@ -45,6 +49,8 @@ class Screen:
         self.can_redo = False   # owner has a scan REDO can replace
         self.scan_request = threading.Event()  # set by the SCAN button
         self.redo_request = threading.Event()  # set by the REDO LAST button
+        self.empty_request = threading.Event()  # set by the EMPTY PLATE button
+        self.depth = "off"      # "on" | "no plate shape" | "off": shown on the screen
         self.state = {}
         self.history = []
         self.since = 0.0
@@ -62,15 +68,57 @@ class Screen:
         with self.lock:
             return dict(self.state, history=list(self.history), age_s=round(time.time() - self.since, 1),
                         panels=[p for p in ("before", "after") if getattr(self, p + "_jpg")],
-                        can_redo=self.can_redo)
+                        can_redo=self.can_redo, depth=self.depth)
 
 
 # --- one scan ----------------------------------------------------------------
 class Scanner:
-    def __init__(self, cfg, profiles, client, store, screen, meal_override=None, send_photo=True):
+    def __init__(self, cfg, profiles, client, store, screen, meal_override=None, send_photo=True,
+                 depth=None, profile_path=None):
         self.cfg, self.profiles, self.client, self.store, self.screen = cfg, profiles, client, store, screen
         self.meal_override, self.send_photo = meal_override, send_photo
         self.residents = {r["id"]: r for r in profiles["residents"]}
+        self.depth, self.profile_path, self.profile = depth, profile_path, None
+        if profile_path and os.path.exists(profile_path):
+            with open(profile_path) as fh:
+                self.profile = json.load(fh)
+        self._depth_status()
+
+    def _depth_status(self):
+        self.screen.depth = "off" if self.depth is None else ("on" if self.profile else "no plate shape")
+
+    def _volumes(self, z, res, plan):
+        """{menu item: volume} inside the Workflow's masks, or None (no depth / no shape / no masks)."""
+        if z is None or not res or not self.profile:
+            return None
+        plate, foods = dep.masks(res, z.shape)
+        vols = dep.volumes(z, plate, {n: m for n, m in foods.items() if n in plan}, self.profile)
+        return {n: vols.get(n, 0.0) for n in plan} if vols is not None else None
+
+    def empty_plate(self, frame):
+        """EMPTY PLATE: save this plate's depth shape (once per plate type). Returns True if saved."""
+        if self.depth is None:
+            self.screen.set("error", "No depth camera", RED, "Station runs on area only")
+            return False
+        z = self.depth.grab()
+        try:
+            res = self.client.run(frame, ["food"])
+        except Exception as ex:
+            print(f"workflow error: {type(ex).__name__}: {ex}")
+            res = None
+        plate, foods = dep.masks(res or {}, z.shape) if z is not None else (None, {})
+        prof = dep.plate_profile(z, plate, foods)
+        if prof is None:
+            self.screen.set("error", "Plate shape not saved", RED, "Center the EMPTY plate and try again")
+            return False
+        self.profile = prof
+        if self.profile_path:
+            with open(self.profile_path, "w") as fh:
+                json.dump(prof, fh)
+        self._depth_status()
+        print(f"plate shape saved: centre {prof[0][1]:.0f} mm, rim {prof[-1][1]:.0f} mm")
+        self.screen.set("before", "Plate shape saved ✓", GREEN, "Depth is on: % eaten = area + depth")
+        return True
 
     def scan(self, frame, hint=None, local_qr=None, redo=False):
         """One scan. redo=True: replace this card's last ok scan (same phase); the old one is
@@ -82,7 +130,8 @@ class Scanner:
                 "meal": meal, "phase": "before", "status": "ok", "needs_review": False, "review_reasons": [],
                 "items": [], "total_pct_eaten": None, "chart_bin": None, "kcal": None, "protein_g": None,
                 "annotated_jpg_b64": None}
-        fracs = None
+        fracs = vols = None
+        z = self.depth.grab() if self.depth is not None and self.profile else None  # same moment as the photo
         # The station reads the card; the Workflow only measures. It runs once we know who and
         # what they were served, with just those items as CLIP's choices (fewer look-alikes).
         qr = local_qr
@@ -98,6 +147,9 @@ class Scanner:
         ann = (res or {}).get("annotated_image")
         body["annotated_jpg_b64"] = (ann or jpeg_b64(frame)) if self.send_photo else None
         body["resident_id"] = qr
+        if plan and res is not None:
+            vols = self._volumes(z, res, plan)
+        body["method"] = "area+depth" if vols is not None else "area"
         body["needs_review"] = bool(est.get("needs_review"))
         body["review_reasons"] = list(est.get("review_reasons") or [])
         old = self.store.last_scan(qr, meal, date) if redo and qr else None
@@ -120,6 +172,7 @@ class Scanner:
             body["review_reasons"] += reasons
             body["needs_review"] = body["needs_review"] or bool(reasons)
             before = self.store.open_before(qr, meal, date, skip=skip)
+            before_vol = before.pop("_vol", None) if before else None
             if before is None:
                 body["items"] = before_items(fracs)
                 if not body["items"]:
@@ -129,14 +182,17 @@ class Scanner:
                     body["review_reasons"].append("no_food")
             else:
                 body["phase"] = "after"
-                body.update(compare(before, fracs, self.profiles["menu_items"]))
+                body.update(compare(before, fracs, self.profiles["menu_items"], before_vol, vols))
+                if before_vol is None or vols is None:
+                    body["method"] = "area"
         # "-redo": a redo can land in the same second as the scan it replaces; never overwrite it
         body["scan_id"] = f"{t}-{qr or 'noqr'}-{meal}-{body['phase']}" + ("-redo" if redo else "")
         if old and body["status"] == "ok":
             body["replaces"] = old["scan_id"]
             self.store.void_scan(old["scan_id"])
 
-        self.store.save_scan(body, date, fracs)
+        # depth volumes ride along with the area fracs, so the AFTER can compare both
+        self.store.save_scan(body, date, dict(fracs, _vol=vols) if fracs is not None and vols is not None else fracs)
         self.store.enqueue(body)
         pic = base64.b64decode(ann) if ann else None
         if pic:
@@ -232,13 +288,14 @@ def run_live(src, scanner, screen, stop, auto=False):
     armed, cand, since, last_seen, last_check = True, None, 0.0, 0.0, 0.0
     busy = threading.Event()
 
-    def start_scan(f, q, redo=False):
-        screen.set("busy", "Redoing last scan…" if redo else "Reading plate…", BLUE, f"card {q}", card=q)
+    def start_scan(f, q, redo=False, empty=False):
+        what = "Reading empty plate…" if empty else "Redoing last scan…" if redo else "Reading plate…"
+        screen.set("busy", what, BLUE, "" if empty else f"card {q}", card=q)
         busy.set()
 
         def work():
             try:
-                scanner.scan(f, local_qr=q, redo=redo)
+                scanner.empty_plate(f) if empty else scanner.scan(f, local_qr=q, redo=redo)
             finally:
                 busy.clear()
         threading.Thread(target=work, daemon=True).start()
@@ -256,6 +313,12 @@ def run_live(src, scanner, screen, stop, auto=False):
         if busy.is_set():
             screen.scan_request.clear()  # a press while reading doesn't queue a second scan
             screen.redo_request.clear()
+            screen.empty_request.clear()
+            continue
+        if screen.empty_request.is_set():
+            screen.empty_request.clear()
+            armed = False
+            start_scan(frame.copy(), None, empty=True)
             continue
         card_here = cand and now - last_seen <= GONE_S
         if screen.scan_request.is_set():
@@ -357,6 +420,13 @@ def make_app(screen, store):
             screen.redo_request.set()
         return JSONResponse({"ok": ok})
 
+    @app.post("/empty")
+    def empty():
+        ok = screen.get()["kind"] != "busy"
+        if ok:
+            screen.empty_request.set()
+        return JSONResponse({"ok": ok})
+
     @app.get("/video")
     def video():
         def gen():
@@ -390,6 +460,9 @@ def main():
     ap.add_argument("--no-photo", action="store_true", help="don't send the annotated photo to the dashboard")
     ap.add_argument("--reset", action="store_true", help="forget all saved scans + unsent results first")
     ap.add_argument("--auto", action="store_true", help="scan on a steady card without waiting for SCAN")
+    ap.add_argument("--no-depth", action="store_true", help="area only: don't open the depth camera")
+    ap.add_argument("--plate-profile", default=os.path.join(ROOT, "plate_profile.json"),
+                    help="where EMPTY PLATE saves the plate's depth shape")
     args = ap.parse_args()
 
     with open(args.profiles, encoding="utf-8") as fh:
@@ -401,10 +474,13 @@ def main():
     scan_url = cfg["DASHBOARD_URL"].rstrip("/") + "/api/scan"
     store.start_outbox(scan_url)
     client = make_client(cfg, fake=args.fake_workflow)
-    scanner = Scanner(cfg, profiles, client, store, screen, args.meal, send_photo=not args.no_photo)
+    depth = dep.DepthCam.open() if args.source.isdigit() and not args.no_depth else None
+    scanner = Scanner(cfg, profiles, client, store, screen, args.meal, send_photo=not args.no_photo,
+                      depth=depth, profile_path=args.plate_profile)
     serve(make_app(screen, store), args.port)
     mode = "FAKE" if args.fake_workflow else f"{cfg['INFERENCE_URL']} / {cfg['WORKFLOW_ID']}"
-    print(f"station {cfg['STATION_ID']}: screen http://localhost:{args.port}  workflow {mode}  -> {scan_url}")
+    print(f"station {cfg['STATION_ID']}: screen http://localhost:{args.port}  workflow {mode}  -> {scan_url}"
+          f"  depth {screen.depth}")
 
     stop = threading.Event()
     try:
@@ -423,6 +499,8 @@ def main():
     finally:
         stop.set()
         store.stop()
+        if depth is not None:
+            depth.close()
 
 
 if __name__ == "__main__":

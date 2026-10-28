@@ -35,6 +35,9 @@
   #redo { display: none; font: 500 clamp(12px, 1.4vw, 22px) var(--mono); letter-spacing: .1em; color: inherit;
     background: transparent; border: 1px solid currentColor; padding: 1vh 1.4vw; cursor: pointer; opacity: .8; }
   #redo:hover { opacity: 1; }
+  #empty { display: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--lav);
+    background: transparent; border: 1px solid var(--line); padding: .3vh .8vw; cursor: pointer; }
+  #empty:hover { border-color: var(--lav); }
   .view.off { display: none; }
   #views { display: flex; gap: 1.6vw; flex: 1; min-height: 0; }
   .view { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 1.2vh 1vw;
@@ -89,7 +92,7 @@
     <div class="view off" id="vafter"><h2>After</h2><img id="after" src="/after.jpg" alt="after scan"></div>
   </div>
   <div id="items"></div>
-  <div id="foot"><span><b>Intake.ai</b> · kitchen station · Roboflow Inference on Jetson Orin</span><span id="meta"></span></div>
+  <div id="foot"><span><b>Intake.ai</b> · kitchen station · Roboflow Inference on Jetson Orin</span><span><span id="meta"></span> · <span id="depth"></span> <button id="empty" type="button" title="Put the EMPTY plate under the camera, then press (E): saves its shape for depth">EMPTY PLATE</button></span></div>
 <script>
 let lastSeq = -1;
 // server color -> theme [background, text]: idle ink, ready/busy lavender, ok mint, review amber, error red
@@ -103,6 +106,8 @@ function paint(color) {
 }
 async function scan() { await fetch('/scan', {method: 'POST'}); }
 async function redo() { await fetch('/redo', {method: 'POST'}); }
+async function empty() { await fetch('/empty', {method: 'POST'}); }
+document.getElementById('empty').addEventListener('click', empty);
 document.getElementById('scan').addEventListener('click', scan);
 document.getElementById('redo').addEventListener('click', redo);
 document.addEventListener('keydown', e => {
@@ -110,6 +115,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); scan();
   }
   if (e.code === 'KeyR' && document.getElementById('redo').style.display !== 'none') redo();
+  if (e.code === 'KeyE' && document.getElementById('empty').style.display !== 'none') empty();
 });
 async function poll() {
   try {
@@ -126,6 +132,10 @@ async function poll() {
       document.getElementById('v' + p).classList.toggle('off', !(s.panels || []).includes(p));
     document.getElementById('meta').textContent =
       (s.outbox_pending ? s.outbox_pending + ' waiting to send · ' : 'all sent · ') + s.time;
+    // depth on = % eaten is the mean of area and depth; no plate shape yet = area until EMPTY PLATE
+    document.getElementById('depth').textContent =
+      s.depth === 'on' ? 'area + depth' : s.depth === 'off' ? 'area only' : 'area only · scan empty plate';
+    document.getElementById('empty').style.display = s.depth && s.depth !== 'off' && s.kind !== 'busy' ? 'inline-block' : 'none';
     if (s.seq !== lastSeq) {
       lastSeq = s.seq;
       const box = document.getElementById('items');
