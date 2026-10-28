@@ -18,7 +18,7 @@ import streamlit as st  # noqa: E402
 from app import alerts, cards, insights, store  # noqa: E402
 
 REFRESH_S = 2
-FEED_LIMIT = 15
+FEED_LIMIT = 8
 MEALS = ("breakfast", "lunch", "dinner")
 ACCENT, LOW, INK = "#8B5CF6", "#EF4444", "#251742"  # match .streamlit/config.toml
 CSS = """<style>
@@ -324,24 +324,25 @@ def kitchen_waste(scans, today):
 
 
 def kitchen_feed(scans):
-    label("From the kitchen")
-    if not scans:
+    """Live proof the station works: camera scans only (seeded history without a photo is skipped)."""
+    label("From the kitchen · live")
+    feed = [s for s in scans if not s.get("synthetic") or s.get("annotated_jpg_b64")]
+    if not feed:
         st.info("No scans yet. Waiting for the kitchen station…")
-    with st.container(height=520, border=False):
-        for s in scans[:FEED_LIMIT]:
-            with st.container(border=True):
-                pic, txt = st.columns([1, 2.2], vertical_alignment="center")
-                if s.get("annotated_jpg_b64") and s.get("status") == "ok":
-                    photo(s["annotated_jpg_b64"], pic)
-                name = RESIDENTS.get(s.get("resident_id"), {}).get("name", s.get("resident_id") or "no card")
-                if s.get("status") != "ok":
-                    result = f":gray-badge[{s['status']}]"
-                elif s["phase"] == "before":
-                    result = ":gray-badge[BEFORE saved]"
-                else:
-                    result = f":violet-badge[ate {fmt_pct(s.get('total_pct_eaten'))}]"
-                flag = " :orange-badge[review]" if s.get("needs_review") and s.get("status") == "ok" else ""
-                txt.markdown(f"**{name}** · {s.get('meal') or ''}  \n{hhmm(s['time'])} {result}{flag}")
+    for s in feed[:FEED_LIMIT]:
+        with st.container(border=True):
+            pic, txt = st.columns([1, 2.2], vertical_alignment="center")
+            if s.get("annotated_jpg_b64") and s.get("status") == "ok":
+                photo(s["annotated_jpg_b64"], pic)
+            name = RESIDENTS.get(s.get("resident_id"), {}).get("name", s.get("resident_id") or "no card")
+            if s.get("status") != "ok":
+                result = f":gray-badge[{s['status']}]"
+            elif s["phase"] == "before":
+                result = ":gray-badge[BEFORE saved]"
+            else:
+                result = f":violet-badge[ate {fmt_pct(s.get('total_pct_eaten'))}]"
+            flag = " :orange-badge[review]" if s.get("needs_review") and s.get("status") == "ok" else ""
+            txt.markdown(f"**{name}** · {s.get('meal') or ''}  \n{hhmm(s['time'])} {result}{flag}")
 
 
 @st.fragment(run_every=REFRESH_S)
